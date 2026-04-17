@@ -6,6 +6,7 @@
 
 local TweenService = Game:GetService("TweenService")
 local Players = Game:GetService("Players")
+local UpgradeVisibility = require(script.Parent.Parent:WaitForChild("UpgradeVisibility"))
 
 local UpgradeMenu = {}
 UpgradeMenu.__index = UpgradeMenu
@@ -60,36 +61,27 @@ local UPGRADES_DATA = {
         }
     },
     {
-        Id = "Desk",
-        Description = "An ergonomic workplace for long producing sessions.",
+        Id = "DecoUpgrades",
+        Description = "Personalize your studio with various decorations.",
         Levels = {
-            {Name = "Small Desk", Price = 0},
-            {Name = "Modern Desk", Price = 300},
-            {Name = "Premium Studio Desk", Price = 1500}
-        }
-    },
-    {
-        Id = "Decoration",
-        Description = "Boost your inspiration and studio prestige.",
-        Levels = {
-            {Name = "Empty Room", Price = 0},
-            {Name = "Posters and LEDs", Price = 200},
-            {Name = "Gold Records and Luxury Decor", Price = 2000}
+            {Name = "Posters", Price = 0},
+            {Name = "Monsters", Price = 500},
+            {Name = "Doritos", Price = 1500}
         }
     }
 }
 
 -- Mock State (Normally would come from a Server DataStore)
 local PlayerData = {
-    Money = 5000,
+    Money = 30000,
     Levels = {
         Computer = 1,
         Microphone = 1,
         Speakers = 1,
-        Desk = 1,
-        Decoration = 1
+        DecoUpgrades = 1
     }
 }
+UpgradeMenu.PlayerData = PlayerData
 
 -- Utility: Create a Tween
 local function createTween(instance, info, propertyTable)
@@ -320,6 +312,16 @@ function UpgradeMenu:CreateRow(upgradeData)
                 PlayerData.Money -= nextLevelData.Price
                 PlayerData.Levels[upgradeData.Id] += 1
                 
+                -- Physical Upgrade: Update the model in Workspace
+                if upgradeData.Id == "Computer" then
+                    UpgradeVisibility.updateComputerUpgrade(PlayerData.Levels.Computer)
+                elseif upgradeData.Id == "Microphone" then
+                    UpgradeVisibility.updateMicUpgrade(PlayerData.Levels.Microphone)
+                elseif upgradeData.Id == "Speakers" then
+                    UpgradeVisibility.updateSpeakerUpgrade(PlayerData.Levels.Speakers)
+                elseif upgradeData.Id == "DecoUpgrades" then
+                    UpgradeVisibility.updateDecoUpgrade(PlayerData.Levels.DecoUpgrades)
+                end
                 -- Visual Feedback
                 local flash = Instance.new("Frame")
                 flash.Size = UDim2.new(1, 0, 1, 0)
@@ -354,6 +356,9 @@ function UpgradeMenu:Refresh()
 
     -- Update Money
     self.MoneyLabel.Text = "$" .. PlayerData.Money
+    
+    -- Update physical prop visibility (Money Stacks)
+    UpgradeVisibility.updateMoneyVisibility(PlayerData.Money)
 
     -- Rebuild rows
     for _, data in pairs(UPGRADES_DATA) do

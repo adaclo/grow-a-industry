@@ -1,5 +1,6 @@
 local MainMenu = require(script.Parent:WaitForChild("ui"):WaitForChild("MainMenu"))
 local UpgradeMenu = require(script.Parent:WaitForChild("ui"):WaitForChild("UpgradeMenu"))
+local UpgradeVisibility = require(script.Parent:WaitForChild("UpgradeVisibility"))
 
 -- Start the Main Menu
 local menu = MainMenu.new()
@@ -33,3 +34,34 @@ corner.Parent = testBtn
 testBtn.MouseButton1Click:Connect(function()
     upgrades:Toggle(not upgrades.Gui.Enabled)
 end)
+
+-- Temporary Test Button for Money
+local moneyBtn = Instance.new("TextButton")
+moneyBtn.Name = "TestMoneyButton"
+moneyBtn.Text = "GIVE $10K (TEST)"
+moneyBtn.Size = UDim2.new(0, 150, 0, 40)
+moneyBtn.Position = UDim2.new(0, 210, 1, -60)
+moneyBtn.BackgroundColor3 = Color3.fromHex("#4BB543")
+moneyBtn.TextColor3 = Color3.new(1, 1, 1)
+moneyBtn.Font = Enum.Font.GothamBold
+moneyBtn.TextSize = 14
+moneyBtn.Parent = testGui
+
+local moneyCorner = Instance.new("UICorner")
+moneyCorner.CornerRadius = UDim.new(0, 8)
+moneyCorner.Parent = moneyBtn
+
+moneyBtn.MouseButton1Click:Connect(function()
+    UpgradeMenu.PlayerData.Money += 10000
+    upgrades:Refresh()
+    print("[Admin] Gave $10,000 via Test Button")
+end)
+
+-- Set initial visibility state (Level 1 by default)
+UpgradeVisibility.updateComputerUpgrade(1)
+UpgradeVisibility.updateMicUpgrade(1)
+UpgradeVisibility.updateSpeakerUpgrade(1)
+UpgradeVisibility.updateDecoUpgrade(UpgradeMenu.PlayerData.Levels.DecoUpgrades)
+UpgradeVisibility.updateMoneyVisibility(UpgradeMenu.PlayerData.Money)
+
+
