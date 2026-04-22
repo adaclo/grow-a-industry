@@ -1,6 +1,12 @@
 local MainMenu = require(script.Parent:WaitForChild("ui"):WaitForChild("MainMenu"))
 local UpgradeMenu = require(script.Parent:WaitForChild("ui"):WaitForChild("UpgradeMenu"))
 local UpgradeVisibility = require(script.Parent:WaitForChild("UpgradeVisibility"))
+local ComputerMenu = require(script.Parent:WaitForChild("ui"):WaitForChild("ComputerMenu"))
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local SharedModules = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameSystem")
+local PlayerDataManager = require(SharedModules:WaitForChild("PlayerDataManager"))
+local EventManager = require(SharedModules:WaitForChild("EventManager"))
+local ComputerInteraction = require(script.Parent:WaitForChild("systems"):WaitForChild("ComputerInteraction"))
 
 -- Start the Main Menu
 local menu = MainMenu.new()
@@ -8,6 +14,10 @@ print("Main Menu initialized!")
 
 -- Initialize Upgrade Menu (Hidden by default)
 local upgrades = UpgradeMenu.new()
+
+-- Initialize Computer Menu and its Interaction System
+local computer = ComputerMenu.new(upgrades)
+local computerInteract = ComputerInteraction.new(computer)
 
 -- Separate ScreenGui for Test Buttons (so they are always visible)
 local testGui = Instance.new("ScreenGui")
@@ -52,16 +62,44 @@ moneyCorner.CornerRadius = UDim.new(0, 8)
 moneyCorner.Parent = moneyBtn
 
 moneyBtn.MouseButton1Click:Connect(function()
-    UpgradeMenu.PlayerData.Money += 10000
-    upgrades:Refresh()
+    PlayerDataManager.UpdateStat("Money", 10000)
     print("[Admin] Gave $10,000 via Test Button")
 end)
 
--- Set initial visibility state (Level 1 by default)
-UpgradeVisibility.updateComputerUpgrade(1)
-UpgradeVisibility.updateMicUpgrade(1)
-UpgradeVisibility.updateSpeakerUpgrade(1)
-UpgradeVisibility.updateDecoUpgrade(UpgradeMenu.PlayerData.Levels.DecoUpgrades)
-UpgradeVisibility.updateMoneyVisibility(UpgradeMenu.PlayerData.Money)
+-- Temporary Test Button for Events
+local eventBtn = Instance.new("TextButton")
+eventBtn.Name = "TestEventButton"
+eventBtn.Text = "TRIGGER EVENT"
+eventBtn.Size = UDim2.new(0, 150, 0, 40)
+eventBtn.Position = UDim2.new(0, 380, 1, -60)
+eventBtn.BackgroundColor3 = Color3.fromHex("#FFA500")
+eventBtn.TextColor3 = Color3.new(1, 1, 1)
+eventBtn.Font = Enum.Font.GothamBold
+eventBtn.TextSize = 14
+eventBtn.Parent = testGui
+
+local eventCorner = Instance.new("UICorner")
+eventCorner.CornerRadius = UDim.new(0, 8)
+eventCorner.Parent = eventBtn
+
+eventBtn.MouseButton1Click:Connect(function()
+    local result = EventManager.TriggerRandomEvent()
+    if result.Type == "Positive" then
+        print(string.format("[Event] %s (%s) - Earned: $%d | Fame: +%d | Followers: +%d", 
+            result.Name, result.Tier, result.Amount, result.Fame, result.Followers))
+    else
+        warn(string.format("[Event] %s - LOST: $%d", result.Name, math.abs(result.Amount)))
+    end
+end)
+
+
+
+-- Set initial visibility state
+local initialState = PlayerDataManager.GetState()
+UpgradeVisibility.updateComputerUpgrade(initialState.Levels.Computer)
+UpgradeVisibility.updateMicUpgrade(initialState.Levels.Microphone)
+UpgradeVisibility.updateSpeakerUpgrade(initialState.Levels.Speakers)
+UpgradeVisibility.updateDecoUpgrade(initialState.Levels.DecoUpgrades)
+UpgradeVisibility.updateMoneyVisibility(initialState.Stats.Money)
 
 

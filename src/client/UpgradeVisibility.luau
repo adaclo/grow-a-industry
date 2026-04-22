@@ -50,8 +50,17 @@ local function anchorModel(model: Instance)
 end
 
 -- Initial discovery: Move everything to storage and index it
+-- We wait a bit for replication since this is a LocalScript
+task.wait(1)
+
 if ComputerUpgrades then
     for _, model in ipairs(ComputerUpgrades:GetChildren()) do
+        -- CRITICAL: Skip the InteractionPart so the ProximityPrompt stays in the world!
+        if model.Name == "InteractionPart" then 
+            anchorModel(model) -- Still anchor it so it doesn't fall
+            continue 
+        end
+        
         allComputerModels[model.Name] = model
         anchorModel(model) -- Stop parts from falling
         model.Parent = HiddenStorage
@@ -107,6 +116,7 @@ function UpgradeVisibility.updateComputerUpgrade(level: number)
         if name == targetName then
             anchorModel(model) -- Defensive: always ensure anchored before showing
             model.Parent = ComputerUpgrades
+            print("Successfully displayed model:", name)
         else
             model.Parent = HiddenStorage
         end

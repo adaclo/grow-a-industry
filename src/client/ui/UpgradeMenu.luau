@@ -6,7 +6,10 @@
 
 local TweenService = Game:GetService("TweenService")
 local Players = Game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UpgradeVisibility = require(script.Parent.Parent:WaitForChild("UpgradeVisibility"))
+local SharedModules = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameSystem")
+local PlayerDataManager = require(SharedModules:WaitForChild("PlayerDataManager"))
 
 local UpgradeMenu = {}
 UpgradeMenu.__index = UpgradeMenu
@@ -71,18 +74,6 @@ local UPGRADES_DATA = {
     }
 }
 
--- Mock State (Normally would come from a Server DataStore)
-local PlayerData = {
-    Money = 30000,
-    Levels = {
-        Computer = 1,
-        Microphone = 1,
-        Speakers = 1,
-        DecoUpgrades = 1
-    }
-}
-UpgradeMenu.PlayerData = PlayerData
-
 -- Utility: Create a Tween
 local function createTween(instance, info, propertyTable)
     local tween = TweenService:Create(instance, info, propertyTable)
@@ -141,7 +132,7 @@ function UpgradeMenu.new()
 
     local moneyLabel = Instance.new("TextLabel")
     moneyLabel.Name = "MoneyLabel"
-    moneyLabel.Text = "$" .. PlayerData.Money
+    moneyLabel.Text = "$" .. PlayerDataManager.GetStat("Money")
     moneyLabel.Font = FONTS.SUBTITLE
     moneyLabel.TextSize = 22
     moneyLabel.TextColor3 = COLORS.MONEY
@@ -189,11 +180,19 @@ function UpgradeMenu.new()
     self.ScrollFrame = scrollFrame
     self:Refresh()
 
+    -- Auto-refresh if state changes externally
+    PlayerDataManager.StateChanged:Connect(function()
+        if self.Gui.Enabled then
+            self:Refresh()
+        end
+    end)
+
     return self
 end
 
 function UpgradeMenu:CreateRow(upgradeData)
-    local currentLevel = PlayerData.Levels[upgradeData.Id]
+    local state = PlayerDataManager.GetState()
+    local currentLevel = state.Levels[upgradeData.Id] or 1
     local isMax = currentLevel >= #upgradeData.Levels
     local nextLevelData = not isMax and upgradeData.Levels[currentLevel + 1] or nil
     local currentLevelData = upgradeData.Levels[currentLevel]
@@ -308,19 +307,20 @@ function UpgradeMenu:CreateRow(upgradeData)
 
         -- Click
         buyBtn.MouseButton1Click:Connect(function()
-            if PlayerData.Money >= nextLevelData.Price then
-                PlayerData.Money -= nextLevelData.Price
-                PlayerData.Levels[upgradeData.Id] += 1
+            local money = PlayerDataManager.GetStat("Money")
+            if money >= nextLevelData.Price then
+                PlayerDataManager.UpdateStat("Money", -nextLevelData.Price)
+                PlayerDataManager.UpdateLevel(upgradeData.Id, currentLevel + 1)
                 
-                -- Physical Upgrade: Update the model in Workspace
+                -- The Refresh will be handled by the generic event, but we can update visibility here
                 if upgradeData.Id == "Computer" then
-                    UpgradeVisibility.updateComputerUpgrade(PlayerData.Levels.Computer)
+                    UpgradeVisibility.updateComputerUpgrade(currentLevel + 1)
                 elseif upgradeData.Id == "Microphone" then
-                    UpgradeVisibility.updateMicUpgrade(PlayerData.Levels.Microphone)
+                    UpgradeVisibility.updateMicUpgrade(currentLevel + 1)
                 elseif upgradeData.Id == "Speakers" then
-                    UpgradeVisibility.updateSpeakerUpgrade(PlayerData.Levels.Speakers)
+                    UpgradeVisibility.updateSpeakerUpgrade(currentLevel + 1)
                 elseif upgradeData.Id == "DecoUpgrades" then
-                    UpgradeVisibility.updateDecoUpgrade(PlayerData.Levels.DecoUpgrades)
+                    UpgradeVisibility.updateDecoUpgrade(currentLevel + 1)
                 end
                 -- Visual Feedback
                 local flash = Instance.new("Frame")
@@ -354,11 +354,13 @@ function UpgradeMenu:Refresh()
         if child:IsA("Frame") then child:Destroy() end
     end
 
+    local money = PlayerDataManager.GetStat("Money")
+
     -- Update Money
-    self.MoneyLabel.Text = "$" .. PlayerData.Money
+    self.MoneyLabel.Text = "$" .. money
     
     -- Update physical prop visibility (Money Stacks)
-    UpgradeVisibility.updateMoneyVisibility(PlayerData.Money)
+    UpgradeVisibility.updateMoneyVisibility(money)
 
     -- Rebuild rows
     for _, data in pairs(UPGRADES_DATA) do
