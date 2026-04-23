@@ -22,7 +22,7 @@ local COLORS = {
     PINK = Color3.fromHex("#FF69B4"),
     UNDERGROUND = Color3.fromHex("#6A0DAD"),
     MAINSTREAM = Color3.fromHex("#FFA500"),
-    COOLDOWN = Color3.fromHex("#444444"),
+    COOLDOWN = Color3.fromHex("#333333"),
     LOCKED = Color3.fromHex("#222222")
 }
 
@@ -175,7 +175,7 @@ function ArtistsMenu.new(parentGui, resultPopup)
     self.ManageContentScroll = dc
 
     local dcLayout = Instance.new("UIListLayout")
-    dcLayout.Padding = UDim.new(0, 15)
+    dcLayout.Padding = UDim.new(0, 12)
     dcLayout.SortOrder = Enum.SortOrder.LayoutOrder
     dcLayout.Parent = dc
 
@@ -273,12 +273,13 @@ function ArtistsMenu:UpdateCooldownUI()
             local state, reason = ArtistSystem.GetActionState(id, self.CurrentlyManaging.Id)
             
             if state == "READY" then
-                if data.Label.Text ~= "READY" then
-                    data.Label.Text = "READY"
-                    data.Label.TextColor3 = COLORS.POSITIVE
-                    data.Label.TextSize = 9
-                    data.Button.BackgroundColor3 = COLORS.BACKGROUND
-                    if data.Stroke then data.Stroke.Transparency = 0 end
+                data.Label.Text = "READY"
+                data.Label.TextColor3 = COLORS.POSITIVE
+                data.Label.TextSize = 9
+                data.Button.BackgroundColor3 = COLORS.ACCENT
+                if data.Stroke then 
+                    data.Stroke.Transparency = 0 
+                    data.Stroke.Color = COLORS.ACCENT_NEON
                 end
             elseif state == "PENDING" or state == "COOLDOWN" then
                 data.Label.Text = "⏳ " .. (reason or "...")
@@ -395,12 +396,14 @@ function ArtistsMenu:OpenArtistDetail(artist)
 end
 
 function ArtistsMenu:GetArtistStatusText(artist)
-    if artist.Stress > 70 then return "Artist is extremely stressed and unstable."
-    elseif artist.Stress > 40 then return "Artist is feeling the pressure."
-    elseif artist.Ego > 80 then return "Ego is causing friction in the studio."
-    elseif artist.Loyalty < 30 then return "Artist doesn't seem to trust your vision."
-    elseif artist.Loyalty > 80 and artist.Stress < 20 then return "Artist is motivated and very stable."
-    else return "Artist is performing within normal parameters." end
+    if artist.Stress > 70 and artist.Loyalty < 30 then return "Artist is breaking down. Loyalty is dangerously low."
+    elseif artist.Stress > 70 then return "Artist is extremely stressed and unstable."
+    elseif artist.Ego > 70 and artist.Talent > 80 then return "High talent but ego is rising fast."
+    elseif artist.Loyalty > 80 and artist.Stress > 40 then return "Loyal artist but stress is building up."
+    elseif artist.Talent > 90 and artist.Ego < 30 then return "Humble prodigy. Pure growth potential."
+    elseif artist.Stress < 20 and artist.Loyalty > 80 then return "Highly motivated and stable."
+    elseif artist.Talent > 50 and artist.Ego < 50 and artist.Stress < 50 then return "Stable but not growing rapidly."
+    else return "Artist is performing within manageable parameters." end
 end
 
 function ArtistsMenu:RenderManageMenu(artist)
@@ -416,7 +419,7 @@ function ArtistsMenu:RenderManageMenu(artist)
     -- 1. HEADER
     local header = Instance.new("Frame")
     header.Name = "DetailHeader"
-    header.Size = UDim2.new(1, 0, 0, 70)
+    header.Size = UDim2.new(1, 0, 0, 60)
     header.BackgroundTransparency = 1
     header.LayoutOrder = 1
     header.ZIndex = 205
@@ -431,7 +434,7 @@ function ArtistsMenu:RenderManageMenu(artist)
     nameL.ZIndex = 206
     nameL.Parent = header
     local styleL = Instance.new("TextLabel")
-    styleL.Text = string.format("%s • %s • %s", artist.Style:upper(), artist.Mood:upper(), "Motivated")
+    styleL.Text = string.format("%s • %s", (artist.Style or artist.Genre or "Unknown"):upper(), "Highly Motivated")
     styleL.Font = FONTS.SUBTITLE
     styleL.TextSize = 10
     styleL.TextColor3 = COLORS.ACCENT_NEON
@@ -444,47 +447,58 @@ function ArtistsMenu:RenderManageMenu(artist)
     -- 2. STATS PANEL
     local statsPanel = Instance.new("Frame")
     statsPanel.Name = "StatsPanel"
-    statsPanel.Size = UDim2.new(1, 0, 0, 130)
+    statsPanel.Size = UDim2.new(1, 0, 0, 120)
     statsPanel.BackgroundTransparency = 1
     statsPanel.LayoutOrder = 2
     statsPanel.ZIndex = 205
     statsPanel.Parent = dc
     local statsList = Instance.new("UIListLayout")
-    statsList.Padding = UDim.new(0, 8)
+    statsList.Padding = UDim.new(0, 6)
     statsList.Parent = statsPanel
     
     local statsData = {
-        {N = "Talent", V = artist.Talent, C = COLORS.POSITIVE},
-        {N = "Loyalty", V = artist.Loyalty, C = COLORS.ACCENT_NEON},
-        {N = "Ego", V = artist.Ego, C = COLORS.PINK},
-        {N = "Stress", V = artist.Stress, C = (artist.Stress > 70 and COLORS.NEGATIVE) or (artist.Stress > 40 and COLORS.GOLD) or COLORS.POSITIVE}
+        {N = "Talent", V = artist.Talent, Inverse = false},
+        {N = "Loyalty", V = artist.Loyalty, Inverse = false},
+        {N = "Ego", V = artist.Ego, Inverse = true},
+        {N = "Stress", V = artist.Stress, Inverse = true}
     }
     for _, s in pairs(statsData) do
+        local color = COLORS.POSITIVE
+        if s.Inverse then
+            if s.V > 70 then color = COLORS.NEGATIVE
+            elseif s.V > 40 then color = COLORS.GOLD
+            else color = COLORS.POSITIVE end
+        else
+            if s.V > 70 then color = COLORS.POSITIVE
+            elseif s.V > 40 then color = COLORS.GOLD
+            else color = COLORS.NEGATIVE end
+        end
+
         local row = Instance.new("Frame")
-        row.Size = UDim2.new(1, 0, 0, 24)
+        row.Size = UDim2.new(1, 0, 0, 22)
         row.BackgroundTransparency = 1
         row.ZIndex = 206
         row.Parent = statsPanel
         local l = Instance.new("TextLabel")
         l.Text = s.N:upper()
         l.Font = FONTS.BODY
-        l.TextSize = 9
+        l.TextSize = 8
         l.TextColor3 = COLORS.TEXT_SECONDARY
-        l.Size = UDim2.new(1, 0, 0, 12)
+        l.Size = UDim2.new(1, 0, 0, 10)
         l.TextXAlignment = Enum.TextXAlignment.Left
         l.BackgroundTransparency = 1
         l.ZIndex = 207
         l.Parent = row
         local bg = Instance.new("Frame")
         bg.Size = UDim2.new(1, 0, 0, 5)
-        bg.Position = UDim2.new(0, 0, 0, 15)
+        bg.Position = UDim2.new(0, 0, 0, 14)
         bg.BackgroundColor3 = Color3.new(0,0,0)
         bg.ZIndex = 207
         bg.Parent = row
         Instance.new("UICorner", bg)
         local fill = Instance.new("Frame")
         fill.Size = UDim2.new(math.clamp(s.V/100, 0, 1), 0, 1, 0)
-        fill.BackgroundColor3 = s.C
+        fill.BackgroundColor3 = color
         fill.ZIndex = 208
         fill.Parent = bg
         Instance.new("UICorner", fill)
@@ -497,7 +511,7 @@ function ArtistsMenu:RenderManageMenu(artist)
     statusL.Font = FONTS.BODY
     statusL.TextSize = 10
     statusL.TextColor3 = COLORS.TEXT_SECONDARY
-    statusL.Size = UDim2.new(1, 0, 0, 25)
+    statusL.Size = UDim2.new(1, 0, 0, 20)
     statusL.BackgroundTransparency = 1
     statusL.LayoutOrder = 3
     statusL.ZIndex = 206
@@ -513,16 +527,16 @@ function ArtistsMenu:RenderManageMenu(artist)
     actionContainer.ZIndex = 205
     actionContainer.Parent = dc
     local actionGrid = Instance.new("UIGridLayout")
-    actionGrid.CellSize = UDim2.new(0.31, 0, 0, 75)
-    actionGrid.CellPadding = UDim2.new(0.03, 0, 0, 12)
+    actionGrid.CellSize = UDim2.new(0.31, 0, 0, 80)
+    actionGrid.CellPadding = UDim2.new(0.03, 0, 0, 10)
     actionGrid.Parent = actionContainer
 
     local mActions = {
-        {Id = "TalkToArtist", Name = "TALK", Icon = "💬", Desc = "+Loyal -Stress"},
-        {Id = "GiveBonus", Name = "BONUS", Icon = "💰", Desc = "++Loyal +Ego"},
-        {Id = "RecordSong", Name = "RECORD", Icon = "🎤", Desc = "+$$ +Fame"},
-        {Id = "RestArtist", Name = "REST", Icon = "💤", Desc = "-Stress -Ego"},
-        {Id = "DropArtist", Name = "DROP", Icon = "❌", Desc = "BYE"}
+        {Id = "TalkToArtist", Name = "TALK", Icon = "💬", Effects = {{T="+Loyalty", C=COLORS.POSITIVE}, {T="-Stress", C=COLORS.POSITIVE}}},
+        {Id = "GiveBonus", Name = "BONUS", Icon = "💰", Effects = {{T="+Loyalty", C=COLORS.POSITIVE}, {T="+Ego", C=COLORS.NEGATIVE}}},
+        {Id = "RecordSong", Name = "RECORD", Icon = "🎤", Effects = {{T="+Money", C=COLORS.POSITIVE}, {T="+Fame", C=COLORS.POSITIVE}}},
+        {Id = "RestArtist", Name = "REST", Icon = "💤", Effects = {{T="-Stress", C=COLORS.POSITIVE}, {T="-Ego", C=COLORS.POSITIVE}}},
+        {Id = "DropArtist", Name = "DROP", Icon = "❌", Effects = {{T="BYE", C=COLORS.NEGATIVE}}}
     }
     for _, act in pairs(mActions) do
         local btn = Instance.new("Frame")
@@ -534,7 +548,7 @@ function ArtistsMenu:RenderManageMenu(artist)
         local stroke = Instance.new("UIStroke")
         stroke.Thickness = 2
         stroke.Color = COLORS.ACCENT_NEON
-        stroke.Transparency = 0 -- Initial READY glow
+        stroke.Transparency = 0
         stroke.Parent = btn
 
         local nL = Instance.new("TextLabel")
@@ -546,23 +560,28 @@ function ArtistsMenu:RenderManageMenu(artist)
         nL.BackgroundTransparency = 1
         nL.ZIndex = 207
         nL.Parent = btn
-        local dL = Instance.new("TextLabel")
-        dL.Text = act.Desc
-        dL.Font = FONTS.BODY
-        dL.TextSize = 8
-        dL.TextColor3 = COLORS.TEXT_SECONDARY
-        dL.Size = UDim2.new(1, -10, 0, 20)
-        dL.Position = UDim2.new(0, 5, 0, 25)
-        dL.BackgroundTransparency = 1
-        dL.ZIndex = 207
-        dL.Parent = btn
+
+        -- Effect labels
+        for i, eff in ipairs(act.Effects or {}) do
+            local eL = Instance.new("TextLabel")
+            eL.Text = eff.T
+            eL.Font = FONTS.BODY
+            eL.TextSize = 7
+            eL.TextColor3 = eff.C
+            eL.Size = UDim2.new(1, 0, 0, 10)
+            eL.Position = UDim2.new(0, 0, 0, 20 + (i*8))
+            eL.BackgroundTransparency = 1
+            eL.ZIndex = 207
+            eL.Parent = btn
+        end
+
         local sL = Instance.new("TextLabel")
         sL.Text = "READY"
         sL.Font = FONTS.BODY
         sL.TextSize = 9
         sL.TextColor3 = COLORS.POSITIVE
-        sL.Size = UDim2.new(1, 0, 0, 20)
-        sL.Position = UDim2.new(0, 0, 0, 48)
+        sL.Size = UDim2.new(1, 0, 0, 15)
+        sL.Position = UDim2.new(0, 0, 0, 60)
         sL.BackgroundTransparency = 1
         sL.ZIndex = 207
         sL.Parent = btn
@@ -578,11 +597,11 @@ function ArtistsMenu:RenderManageMenu(artist)
         
         clickBtn.MouseEnter:Connect(function()
             if sL.Text == "READY" then
-                TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(30,30,30)}):Play()
+                TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(40,40,40), Size = UDim2.new(1.05,0,1.05,0)}):Play()
             end
         end)
         clickBtn.MouseLeave:Connect(function()
-            TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = COLORS.BACKGROUND}):Play()
+            TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = COLORS.BACKGROUND, Size = UDim2.new(1,0,1,0)}):Play()
         end)
 
         clickBtn.MouseButton1Click:Connect(function()
