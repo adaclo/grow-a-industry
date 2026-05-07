@@ -43,11 +43,11 @@ La sincronització entre Visual Studio Code i Roblox Studio es fa mitjançant Ro
 
 GitHub s’utilitza per guardar versions del projecte i mantenir un historial dels canvis realitzats.
 
-3. Decisions inicials d’implementació
+# 3. Decisions inicials d’implementació
 
 Durant aquesta fase s’han pres diverses decisions importants relacionades amb l’arquitectura i el funcionament del joc.
 
-3.1. Arquitectura modular
+## 3.1. Arquitectura modular
 
 S’ha decidit separar el projecte en diferents sistemes independents:
 
@@ -66,7 +66,8 @@ mantenir el codi més ordenat;
 facilitar futurs canvis;
 evitar scripts molt grans;
 permetre que diferents sistemes interactuïn entre si.
-3.2. Arquitectura basada en esdeveniments
+
+## 3.2. Arquitectura basada en esdeveniments
 
 Inicialment, diferents sistemes modificaven directament les dades del jugador.
 
@@ -84,7 +85,7 @@ Sistema → EventBus → StateResolver → PlayerDataManager
 
 Això permet una arquitectura més escalable i coherent.
 
-3.3. Sistema de simulació
+## 3.3. Sistema de simulació
 
 S’ha decidit enfocar el joc cap a una simulació de la indústria musical basada en:
 
@@ -98,11 +99,11 @@ conseqüències persistents.
 
 L’objectiu no és crear un simple “tycoon”, sinó una experiència on les decisions generin situacions emergents.
 
-4. Funcionalitats implementades fins ara
+# 4. Funcionalitats implementades fins ara
 
 Actualment el projecte ja disposa d’un prototip funcional amb diferents sistemes implementats.
 
-4.1. Sistema de producció musical
+## 4.1. Sistema de producció musical
 
 El jugador pot:
 
@@ -120,7 +121,8 @@ flops;
 viralitat;
 estrès;
 modificadors.
-4.2. Sistema d’artistes
+
+## 4.2. Sistema d’artistes
 
 El joc permet:
 
@@ -139,7 +141,8 @@ estrès;
 lleialtat;
 ego;
 esdeveniments aleatoris.
-4.3. Sistema de xarxes socials
+
+## 4.3. Sistema de xarxes socials
 
 S’han implementat diferents accions socials:
 
@@ -158,7 +161,8 @@ hype;
 reputació;
 risc;
 comunitat.
-4.4. Sistema de millores de l’estudi
+
+## 4.4. Sistema de millores de l’estudi
 
 El jugador pot millorar:
 
@@ -176,7 +180,7 @@ nivell de l’estudi.
 
 També es reflecteixen visualment dins del mapa.
 
-4.5. Sistema d’arquitectura interna
+## 4.5. Sistema d’arquitectura interna
 
 S’ha implementat:
 
@@ -189,33 +193,37 @@ PressureSystem (en desenvolupament).
 
 Aquest sistema permet crear mecàniques més complexes sense dependre directament de la interfície.
 
-5. Evidències del treball realitzat
-5.1. Captura del menú principal
+# 5. Evidències del treball realitzat
+
+## 5.1. Captura del menú principal
 
 Breu explicació:
 Es mostra el menú principal del joc i l’accés a les diferents funcionalitats.
 
-5.2. Captura del sistema de producció
+![alt text](image-1.png)
+
+## 5.2. Captura del sistema de producció
 
 Breu explicació:
 El jugador pot modificar sliders i generar diferents tipus de cançons segons l’estratègia escollida.
 
-5.3. Captura del sistema d’artistes
+![alt text](image.png)
+
+## 5.3. Captura del sistema d’artistes
 
 Breu explicació:
 Sistema per gestionar artistes, cooldowns i diferents accions.
 
-5.4. Captura del mapa i estudi
+![alt text](image-3.png)
+
+## 5.4. Captura del mapa i estudi
 
 Breu explicació:
 Vista general de l’estudi i de les millores visuals implementades.
 
-5.5. Captura de logs i arquitectura
+![alt text](image-4.png)
 
-Breu explicació:
-Es mostra el funcionament de l’arquitectura basada en EventBus i StateResolver.
-
-6. Problemes trobats i solucions
+# 6. Problemes trobats i solucions
 
 Durant el desenvolupament han aparegut diferents problemes:
 
@@ -225,7 +233,8 @@ Models físics es desmuntaven	Models ancorats i gestió de física
 Massa mutacions directes de dades	Refactor amb EventBus
 Menús sobreposats	Reestructuració de layouts
 Codi difícil d’escalar	Arquitectura modular
-7. Estat actual del prototip
+
+# 7. Estat actual del prototip
 
 Actualment el projecte compleix les condicions mínimes perquè:
 
@@ -239,7 +248,7 @@ el joc ja disposa d’un bucle principal funcional.
 
 El projecte encara està en desenvolupament, però la base tècnica i jugable ja està implementada.
 
-8. Properes passes
+# 8. Properes passes
 
 Les següents fases del desenvolupament se centraran en:
 
@@ -250,7 +259,3 @@ equilibrar el sistema econòmic;
 afegir conseqüències a llarg termini;
 millorar el feedback visual i sonor;
 implementar guardat de partida.
-
-# 3. Captures
-![alt text](image.png)
-![alt text](image-1.png)
