@@ -50,6 +50,7 @@ function ArtistsMenu.new(parentGui, resultPopup)
     mainFrame.BorderSizePixel = 0
     mainFrame.Visible = false
     mainFrame.ZIndex = 100
+    mainFrame.Active = true
     
     if not parentGui then
         local pg = Players.LocalPlayer:WaitForChild("PlayerGui")
@@ -156,6 +157,7 @@ function ArtistsMenu.new(parentGui, resultPopup)
     self.DetailView.Size = UDim2.new(1, 0, 1, 0)
     self.DetailView.BackgroundColor3 = COLORS.PANEL
     self.DetailView.ZIndex = 200
+    self.DetailView.Active = true
     self.DetailView.Visible = false
     self.DetailView.Parent = mainFrame
     Instance.new("UICorner", self.DetailView).CornerRadius = UDim.new(0, 20)
@@ -203,9 +205,14 @@ function ArtistsMenu.new(parentGui, resultPopup)
         elseif key == "StudioLevel" then self:UpdateInfo() end
     end)
 
-    -- Core Update Loop
-    RunService.Heartbeat:Connect(function()
-        self:UpdateCooldownUI()
+    -- Core Update Loop  (~0.5s throttle is enough for whole-second countdowns)
+    local _cdAccum = 0
+    RunService.Heartbeat:Connect(function(dt)
+        _cdAccum += dt
+        if _cdAccum >= 0.5 then
+            _cdAccum = 0
+            self:UpdateCooldownUI()
+        end
     end)
 
     return self
@@ -254,49 +261,85 @@ end
 function ArtistsMenu:UpdateCooldownUI()
     -- Update Discovery Buttons
     for id, data in pairs(self.DiscoveryButtons) do
-        local state, reason = ArtistSystem.GetActionState(id)
+        local state = ArtistSystem.GetActionState(id)
         if state == "READY" then
             data.Button.BackgroundColor3 = COLORS.BACKGROUND
             data.Label.TextColor3 = COLORS.TEXT_PRIMARY
+            data.Button.Active = true
         elseif state == "LOCKED" or state == "FULL" then
             data.Button.BackgroundColor3 = COLORS.LOCKED
             data.Label.TextColor3 = COLORS.NEGATIVE
+            data.Button.Active = false
         elseif state == "COOLDOWN" then
             data.Button.BackgroundColor3 = COLORS.COOLDOWN
             data.Label.TextColor3 = COLORS.GOLD
+            data.Button.Active = false
         end
     end
 
-    -- Update Manage Buttons
+    -- Update Manage Buttons (only while detail view is open)
     if self.CurrentlyManaging and self.DetailView.Visible then
         for id, data in pairs(self.ManageButtons) do
             local state, reason = ArtistSystem.GetActionState(id, self.CurrentlyManaging.Id)
-            
+            local prev = data.LastState
+            print("[ArtistsMenu] UPDATE", id, "| state:", state, "| remaining:", reason, "| artistId:", self.CurrentlyManaging.Id)
+
             if state == "READY" then
+                data.LastState = "READY"
                 data.Label.Text = "READY"
                 data.Label.TextColor3 = COLORS.POSITIVE
                 data.Label.TextSize = 9
                 data.Button.BackgroundColor3 = COLORS.ACCENT
-                if data.Stroke then 
-                    data.Stroke.Transparency = 0 
+                if data.ClickBtn then
+                    data.ClickBtn.Active = true
+                    data.ClickBtn.AutoButtonColor = true
+                end
+                if data.Stroke then
+                    data.Stroke.Transparency = 0
                     data.Stroke.Color = COLORS.ACCENT_NEON
                 end
+                -- One-shot glow flash on COOLDOWN → READY transition
+                if prev ~= nil and prev ~= "READY" then
+                    print("[ArtistsMenu] COOLDOWN EXPIRED", id, "-> READY (flash)")
+                    TweenService:Create(data.Button, TweenInfo.new(0.25), {
+                        BackgroundColor3 = COLORS.ACCENT_NEON
+                    }):Play()
+                    task.delay(0.25, function()
+                        if data.LastState == "READY" then
+                            TweenService:Create(data.Button, TweenInfo.new(0.3), {
+                                BackgroundColor3 = COLORS.ACCENT
+                            }):Play()
+                        end
+                    end)
+                end
+
             elseif state == "PENDING" or state == "COOLDOWN" then
+                data.LastState = state
                 data.Label.Text = "⏳ " .. (reason or "...")
                 data.Label.TextColor3 = COLORS.GOLD
                 data.Label.TextSize = 8
                 data.Button.BackgroundColor3 = COLORS.COOLDOWN
+                if data.ClickBtn then
+                    data.ClickBtn.Active = false
+                    data.ClickBtn.AutoButtonColor = false
+                end
                 if data.Stroke then data.Stroke.Transparency = 0.8 end
+
             elseif state == "LOCKED" then
+                data.LastState = "LOCKED"
                 data.Label.Text = "LOCKED"
                 data.Label.TextColor3 = COLORS.NEGATIVE
                 data.Button.BackgroundColor3 = COLORS.LOCKED
+                if data.ClickBtn then
+                    data.ClickBtn.Active = false
+                    data.ClickBtn.AutoButtonColor = false
+                end
                 if data.Stroke then data.Stroke.Transparency = 1 end
             end
         end
     end
 
-    -- Update Roster Statuses
+    -- Update Roster Status labels
     for _, timer in pairs(self.ActiveTimers) do
         local state, reason = ArtistSystem.GetActionState(timer.ActionId, timer.ArtistId)
         if state == "READY" then
@@ -349,7 +392,7 @@ function ArtistsMenu:CreateArtistCard(artist, index)
     entry.ZIndex = 105
     Instance.new("UICorner", entry).CornerRadius = UDim.new(0, 12)
     local name = Instance.new("TextLabel")
-    name.Text = artist.Name:upper()
+    name.Text = string.upper(tostring(artist.Name or "Unknown"))
     name.Font = FONTS.TITLE
     name.TextSize = 15
     name.TextColor3 = COLORS.TEXT_PRIMARY
@@ -425,7 +468,7 @@ function ArtistsMenu:RenderManageMenu(artist)
     header.ZIndex = 205
     header.Parent = dc
     local nameL = Instance.new("TextLabel")
-    nameL.Text = artist.Name:upper()
+    nameL.Text = string.upper(tostring(artist.Name or "Unknown"))
     nameL.Font = FONTS.TITLE
     nameL.TextSize = 22
     nameL.TextColor3 = COLORS.TEXT_PRIMARY
@@ -434,7 +477,7 @@ function ArtistsMenu:RenderManageMenu(artist)
     nameL.ZIndex = 206
     nameL.Parent = header
     local styleL = Instance.new("TextLabel")
-    styleL.Text = string.format("%s • %s", (artist.Style or artist.Genre or "Unknown"):upper(), "Highly Motivated")
+    styleL.Text = string.format("%s • %s", string.upper(tostring(artist.Style or artist.Genre or "Unknown")), "Highly Motivated")
     styleL.Font = FONTS.SUBTITLE
     styleL.TextSize = 10
     styleL.TextColor3 = COLORS.ACCENT_NEON
@@ -542,6 +585,7 @@ function ArtistsMenu:RenderManageMenu(artist)
         local btn = Instance.new("Frame")
         btn.BackgroundColor3 = COLORS.BACKGROUND
         btn.ZIndex = 206
+        btn.Active = false  -- must NOT intercept input; clickBtn handles all clicks
         btn.Parent = actionContainer
         Instance.new("UICorner", btn)
         
@@ -585,36 +629,61 @@ function ArtistsMenu:RenderManageMenu(artist)
         sL.BackgroundTransparency = 1
         sL.ZIndex = 207
         sL.Parent = btn
-        
-        self.ManageButtons[act.Id] = {Button = btn, Label = sL, Stroke = stroke}
 
+        -- clickBtn: transparent overlay that receives ALL click/hover events for this card
         local clickBtn = Instance.new("TextButton")
         clickBtn.Size = UDim2.new(1, 0, 1, 0)
         clickBtn.BackgroundTransparency = 1
         clickBtn.Text = ""
-        clickBtn.ZIndex = 208
+        clickBtn.ZIndex = 210  -- above all decorative children (207) and stroke
+        clickBtn.Active = true
+        clickBtn.Selectable = true
+        clickBtn.AutoButtonColor = false  -- we control color ourselves
         clickBtn.Parent = btn
-        
+
+        self.ManageButtons[act.Id] = {Button = btn, Label = sL, Stroke = stroke, ClickBtn = clickBtn, LastState = nil}
+
         clickBtn.MouseEnter:Connect(function()
-            if sL.Text == "READY" then
+            local entry = self.ManageButtons[act.Id]
+            if entry and entry.LastState == "READY" then
                 TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(40,40,40), Size = UDim2.new(1.05,0,1.05,0)}):Play()
             end
         end)
         clickBtn.MouseLeave:Connect(function()
-            TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = COLORS.BACKGROUND, Size = UDim2.new(1,0,1,0)}):Play()
+            local entry = self.ManageButtons[act.Id]
+            local targetColor = (entry and entry.LastState == "READY") and COLORS.ACCENT or COLORS.BACKGROUND
+            TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = targetColor, Size = UDim2.new(1,0,1,0)}):Play()
         end)
 
         clickBtn.MouseButton1Click:Connect(function()
-            local state, reason = ArtistSystem.GetActionState(act.Id, artist.Id)
-            if state ~= "READY" then return end
+            -- Always re-check state from source of truth — never rely on visual label
+            local currentState, reason = ArtistSystem.GetActionState(act.Id, artist.Id)
+            print("[ArtistsMenu] CLICK", act.Id, "| state:", currentState, "| reason:", reason)
+            if currentState ~= "READY" then return end
             if self.IsProcessing then return end
             self.IsProcessing = true
+
             local success, result = pcall(function() return ArtistSystem.PerformAction(act.Id, artist.Id) end)
             if success and result and result.Success then
                 self.ResultPopup:Show(result)
-                if act.Id == "DropArtist" then self.DetailView.Visible = false else self:RenderManageMenu(artist) end
+                if act.Id == "DropArtist" then
+                    self.DetailView.Visible = false
+                    self.CurrentlyManaging = nil
+                else
+                    -- Re-fetch fresh artist data so stats re-render correctly
+                    local freshArtist
+                    for _, a in pairs(PlayerDataManager.GetState().Artists) do
+                        if a.Id == artist.Id then freshArtist = a break end
+                    end
+                    local target = freshArtist or artist
+                    self.CurrentlyManaging = target
+                    self:RenderManageMenu(target)
+                end
                 if self.OnActionTriggered then self.OnActionTriggered() end
+            elseif success and result then
+                print("[ArtistsMenu] ACTION FAILED:", act.Id, result.Error)
             end
+
             task.wait(1)
             self.IsProcessing = false
         end)

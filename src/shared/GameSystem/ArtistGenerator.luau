@@ -32,7 +32,7 @@ function ArtistGenerator.Generate(tier)
         Stress = 0,
         Cooldowns = {},
         IsPending = true,
-        PendingTime = tick() + 60, -- 60 seconds of pending
+        PendingTime = os.time() + 60, -- 60 seconds of pending (os.time() for consistency)
     }
 
     if tier == "Mainstream" then

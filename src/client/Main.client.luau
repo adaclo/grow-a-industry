@@ -8,6 +8,13 @@ local PlayerDataManager = require(SharedModules:WaitForChild("PlayerDataManager"
 local EventManager = require(SharedModules:WaitForChild("EventManager"))
 local ComputerInteraction = require(script.Parent:WaitForChild("systems"):WaitForChild("ComputerInteraction"))
 
+-- Initialize Architecture Systems
+local StateResolver = require(SharedModules:WaitForChild("Architecture"):WaitForChild("StateResolver"))
+local PressureSystem = require(SharedModules:WaitForChild("Architecture"):WaitForChild("PressureSystem"))
+
+StateResolver.Init()
+PressureSystem.Init()
+
 -- Start the Main Menu
 local menu = MainMenu.new()
 print("Main Menu initialized!")

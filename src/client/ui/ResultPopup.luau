@@ -23,6 +23,7 @@ function ResultPopup.new(parentGui)
     overlay.BackgroundColor3 = Color3.new(0, 0, 0)
     overlay.BackgroundTransparency = 1
     overlay.ZIndex = 1000
+    overlay.Active = true
     overlay.Visible = false
     overlay.Parent = parentGui
     self.Overlay = overlay
@@ -35,6 +36,7 @@ function ResultPopup.new(parentGui)
     container.BackgroundColor3 = COLORS.BACKGROUND
     container.BorderSizePixel = 0
     container.ZIndex = 1001
+    container.Active = true
     container.Parent = overlay
     self.Container = container
 

@@ -34,7 +34,25 @@ local state = {
     Perception = 50, -- 0 = Pure Underground, 100 = Pure Mainstream
     StudioLevel = 1,
     Artists = {},
-    History = {}
+    History = {},
+
+    -- Simulation depth fields
+    Memory = {},  -- label-level flags: { [key] = value }
+    Momentum = {
+        Streak     = 0,
+        StreakType = nil,
+        ConsecHits  = 0,
+        ConsecFlops = 0,
+        LastOutcome = nil,
+    },
+    Trends = {
+        Pop        = {Phase = "Rising",    Ticks = 0},
+        Trap       = {Phase = "Peak",      Ticks = 0},
+        Electronic = {Phase = "Declining", Ticks = 0},
+        Indie      = {Phase = "Rising",    Ticks = 0},
+        Hyperpop   = {Phase = "Dead",      Ticks = 0},
+        Rock       = {Phase = "Declining", Ticks = 0},
+    },
 }
 
 -- BindableEvent to let UI know when stats change
@@ -152,6 +170,65 @@ end
 function PlayerDataManager.AddHistory(songData)
     table.insert(state.History, songData)
     StateChanged:Fire("History", state.History)
+end
+
+-- ── Memory flags ──────────────────────────────────────────────────────────────
+function PlayerDataManager.SetMemoryFlag(key, value)
+    state.Memory[key] = value
+    print(string.format("[PlayerDataManager] Memory: %s = %s", key, tostring(value)))
+    StateChanged:Fire("Memory_" .. key, value)
+end
+
+function PlayerDataManager.GetMemoryFlag(key)
+    return state.Memory[key]
+end
+
+-- ── Momentum ──────────────────────────────────────────────────────────────────
+function PlayerDataManager.UpdateMomentum(outcomeType)
+    local m = state.Momentum
+    m.LastOutcome = outcomeType
+    if outcomeType == "Hit" then
+        m.ConsecHits  = m.ConsecHits + 1
+        m.ConsecFlops = 0
+        m.Streak      = m.ConsecHits
+        m.StreakType  = "Hit"
+    elseif outcomeType == "Flop" then
+        m.ConsecFlops = m.ConsecFlops + 1
+        m.ConsecHits  = 0
+        m.Streak      = -m.ConsecFlops
+        m.StreakType  = "Flop"
+    else -- Neutral breaks both streaks
+        m.ConsecHits  = 0
+        m.ConsecFlops = 0
+        m.Streak      = 0
+        m.StreakType  = nil
+    end
+    print(string.format("[PlayerDataManager] Momentum: %s | Hits=%d Flops=%d Streak=%d",
+        outcomeType, m.ConsecHits, m.ConsecFlops, m.Streak))
+    StateChanged:Fire("Momentum", m)
+end
+
+function PlayerDataManager.GetMomentum()
+    return state.Momentum
+end
+
+-- ── Trends ────────────────────────────────────────────────────────────────────
+local TREND_PHASE_ORDER = {"Dead", "Rising", "Peak", "Declining"}
+
+function PlayerDataManager.AdvanceTrend(genreName)
+    local trend = state.Trends[genreName]
+    if not trend then return end
+    local idx = 1
+    for i, phase in ipairs(TREND_PHASE_ORDER) do
+        if phase == trend.Phase then idx = i break end
+    end
+    trend.Phase = TREND_PHASE_ORDER[(idx % #TREND_PHASE_ORDER) + 1]
+    trend.Ticks = trend.Ticks + 1
+    StateChanged:Fire("Trend_" .. genreName, trend)
+end
+
+function PlayerDataManager.GetTrend(genreName)
+    return state.Trends[genreName]
 end
 
 return PlayerDataManager

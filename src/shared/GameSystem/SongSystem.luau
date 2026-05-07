@@ -87,35 +87,28 @@ function SongSystem.ReleaseSong(sliders, targetGenre)
     local myStats = state.Stats
     local estimates = SongSystem.CalculateEstimate(sliders)
     
+    local EventBus = require(script.Parent:WaitForChild("Architecture"):WaitForChild("EventBus"))
+    local ModifierSystem = require(script.Parent:WaitForChild("Architecture"):WaitForChild("ModifierSystem"))
+    
     -- Check money
     if myStats.Money < estimates.Cost then
         return {Success = false, Error = "Not enough money!"}
     end
 
-    -- Initial deductions
-    PlayerDataManager.UpdateStat("Money", -estimates.Cost)
-    
-    -- Stress increases faster with hits/fame (simulated)
+    -- 1. Calculate Base Modifiers & Stress
     local fameMod = math.clamp(myStats.Fame / 10000, 0, 10)
-    local finalStressAdd = estimates.Stress + fameMod
-    PlayerDataManager.UpdateStat("Stress", finalStressAdd)
+    local baseStressAdd = estimates.Stress + fameMod
+    local finalStressAdd = ModifierSystem.Calculate("ArtistStress", baseStressAdd)
+    local currentStress = PlayerDataManager.GetStat("Stress") + finalStressAdd
     
     -- Roll for Outcome
-    local currentStress = PlayerDataManager.GetStat("Stress")
     local roll = math.random(1, 100)
     
-    -- Higher stress increases negative probabilities
-    local negativeThreshold = 15 + (currentStress / 5)
-    local hitThreshold = 85 - (currentStress / 10) + (sliders.Budget * 15) + (sliders.Promotion * 10)
-    local viralThreshold = 95 - (currentStress / 15) + (sliders.Originality * 10) + (sliders.Promotion * 5)
+    -- 2. Threshold Modifiers
+    local negativeThreshold = ModifierSystem.Calculate("NegativeChance", 15 + (currentStress / 5))
+    local hitThreshold = ModifierSystem.Calculate("HitChance", 85 - (currentStress / 10) + (sliders.Budget * 15) + (sliders.Promotion * 10))
+    local viralThreshold = ModifierSystem.Calculate("ViralChance", 95 - (currentStress / 15) + (sliders.Originality * 10) + (sliders.Promotion * 5))
     
-    local outcome = OUTCOMES.SUCCESS_SMALL
-    local moneyGained = 0
-    local fameGained = 0
-    local followersGained = 0
-    local repChange = 0
-    local desc = ""
-
     -- Consistency Penalty logic
     local identityMismatch = 0
     if sliders.Commercial > 0.7 and state.Perception < 30 then
@@ -127,6 +120,14 @@ function SongSystem.ReleaseSong(sliders, targetGenre)
     -- Adjust thresholds based on mismatch
     hitThreshold += (identityMismatch / 2)
     viralThreshold += (identityMismatch / 2)
+
+    local outcome = OUTCOMES.SUCCESS_SMALL
+    local moneyGained = 0
+    local fameGained = 0
+    local followersGained = 0
+    local repChange = 0
+    local desc = ""
+    local communityChanges = {}
 
     if roll < negativeThreshold then
         -- Negative Outcome
@@ -146,8 +147,8 @@ function SongSystem.ReleaseSong(sliders, targetGenre)
         desc = "Something went wrong in the industry..."
         
         if outcome == OUTCOMES.EVENT_SOLD_OUT then
-            PlayerDataManager.UpdateCommunity("Haters", 100)
-            PlayerDataManager.UpdateCommunity("LoyalFans", -20)
+            communityChanges["Haters"] = 100
+            communityChanges["LoyalFans"] = -20
         end
     elseif roll > viralThreshold then
         outcome = OUTCOMES.SUCCESS_VIRAL
@@ -170,7 +171,7 @@ function SongSystem.ReleaseSong(sliders, targetGenre)
         followersGained = math.random(100, 300)
         repChange = 25 -- High Rep for Cult Classics
         desc = "Niche communities are hailing this as a masterpiece."
-        PlayerDataManager.UpdateCommunity("LoyalFans", 200)
+        communityChanges["LoyalFans"] = 200
     else
         outcome = OUTCOMES.SUCCESS_MODERATE
         moneyGained = math.random(estimates.Cost * 0.5, estimates.Cost * 1.5)
@@ -183,54 +184,54 @@ function SongSystem.ReleaseSong(sliders, targetGenre)
     -- Backlash System: High Fame + High Commercial = More Haters
     if myStats.Fame > 10000 and sliders.Commercial > 0.7 then
         local hateIncrease = math.floor(myStats.Fame / 1000) * sliders.Commercial
-        PlayerDataManager.UpdateCommunity("Haters", hateIncrease)
+        communityChanges["Haters"] = (communityChanges["Haters"] or 0) + hateIncrease
     end
 
     -- Community System Updates
     if sliders.Commercial > 0.6 then
-        PlayerDataManager.UpdateCommunity("MainstreamAudience", followersGained * 0.8)
-        PlayerDataManager.UpdateCommunity("CasualListeners", followersGained * 0.5)
+        communityChanges["MainstreamAudience"] = (communityChanges["MainstreamAudience"] or 0) + (followersGained * 0.8)
+        communityChanges["CasualListeners"] = (communityChanges["CasualListeners"] or 0) + (followersGained * 0.5)
     else
-        PlayerDataManager.UpdateCommunity("UndergroundAudience", followersGained * 0.8)
-        PlayerDataManager.UpdateCommunity("LoyalFans", followersGained * 0.3)
+        communityChanges["UndergroundAudience"] = (communityChanges["UndergroundAudience"] or 0) + (followersGained * 0.8)
+        communityChanges["LoyalFans"] = (communityChanges["LoyalFans"] or 0) + (followersGained * 0.3)
     end
 
     -- Perception Update
     local pChange = (sliders.Commercial - 0.5) * 10
-    PlayerDataManager.UpdatePerception(pChange)
     
-    -- Genre Identity Update
-    if targetGenre then
-        PlayerDataManager.UpdateGenre(targetGenre, 1)
-    end
+    -- 3. Final Multipliers from Modifiers
+    moneyGained = ModifierSystem.Calculate("SongRevenue", moneyGained)
+    
+    -- Calculate net money
+    local netMoneyGained = moneyGained - estimates.Cost
 
-    -- Apply results
-    PlayerDataManager.UpdateStat("Money", math.floor(moneyGained))
-    PlayerDataManager.UpdateStat("Fame", math.floor(fameGained))
-    PlayerDataManager.UpdateStat("Followers", math.floor(followersGained))
-    PlayerDataManager.UpdateStat("Reputation", math.floor(repChange))
-
+    -- 4. Build Final Payload
     local finalResult = {
         Success = true,
         Title = outcome.Name,
         Description = desc,
         Outcome = outcome.Name,
         ResultType = outcome.Type,
-        MoneyGained = math.floor(moneyGained),
+        MoneyGained = math.floor(netMoneyGained),
         FameGained = math.floor(fameGained),
         FollowersGained = math.floor(followersGained),
         StressChange = math.floor(finalStressAdd),
-        RepChange = math.floor(repChange)
+        RepChange = math.floor(repChange),
+        CommunityChanges = communityChanges,
+        PerceptionChange = pChange,
+        GenreUpdate = targetGenre,
+        HistoryData = {
+            Sliders = sliders,
+            Genre = targetGenre,
+            Outcome = outcome.Name,
+            Timestamp = os.time()
+        }
     }
     
-    -- Save to history
-    PlayerDataManager.AddHistory({
-        Sliders = sliders,
-        Genre = targetGenre,
-        Outcome = outcome.Name,
-        Timestamp = os.time()
-    })
+    print("[SongSystem] Outcome generated. Emitting SONG_RELEASED...")
+    EventBus.Emit("SONG_RELEASED", finalResult)
 
+    -- Return directly to UI to preserve backwards compatibility
     return finalResult
 end
 
