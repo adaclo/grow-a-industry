@@ -100,6 +100,7 @@ function PressureSystem._Tick(dt)
 		local rent = cfg.RentBase + (studioLevel * cfg.RentPerStudioLevel)
 		print(string.format("[PressureSystem] Rent due: -$%d (Studio Lvl %d)", rent, studioLevel))
 		EventBus.Emit("STAT_CHANGE_REQUESTED", {Stat = "Money", Amount = -rent})
+		EventBus.Emit("READABILITY_NOTIFICATION", {Text = string.format("💸 Rent paid: -$%d", rent), Type = "Negative"})
 	end
 
 	-- ── Hype Decay ────────────────────────────────────────────────────────
@@ -110,6 +111,7 @@ function PressureSystem._Tick(dt)
 			local decay = math.max(cfg.HypeDecayMin, math.floor(currentHype * cfg.HypeDecayPercent))
 			print(string.format("[PressureSystem] Hype decay: -%d (was %d)", decay, currentHype))
 			EventBus.Emit("STAT_CHANGE_REQUESTED", {Stat = "Hype", Amount = -decay})
+			EventBus.Emit("READABILITY_NOTIFICATION", {Text = string.format("📉 Hype fading: -%d", decay), Type = "Negative"})
 		end
 	end
 

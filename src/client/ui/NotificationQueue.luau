@@ -1,3 +1,4 @@
+local Players = game:GetService("Players")
 local SharedModules = game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("GameSystem")
 local EventBus = require(SharedModules:WaitForChild("Architecture"):WaitForChild("EventBus"))
 local DecisionPopup = require(script.Parent:WaitForChild("DecisionPopup"))
@@ -5,9 +6,18 @@ local DecisionPopup = require(script.Parent:WaitForChild("DecisionPopup"))
 local NotificationQueue = {}
 NotificationQueue.__index = NotificationQueue
 
-function NotificationQueue.new(parentGui)
+function NotificationQueue.new(_parentGui)
     local self = setmetatable({}, NotificationQueue)
-    self.Popup = DecisionPopup.new(parentGui)
+
+    -- Persistent ScreenGui (survives MainMenu destruction)
+    local notifGui = Instance.new("ScreenGui")
+    notifGui.Name = "NotificationQueueGui"
+    notifGui.DisplayOrder = 950
+    notifGui.ResetOnSpawn = false
+    notifGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+    self.Gui = notifGui
+
+    self.Popup = DecisionPopup.new(notifGui)
     self.Queue = {}
     self.IsShowing = false
 
@@ -15,9 +25,9 @@ function NotificationQueue.new(parentGui)
     local badgeContainer = Instance.new("Frame")
     badgeContainer.Name = "NotificationBadgeContainer"
     badgeContainer.Size = UDim2.new(0, 250, 0, 300)
-    badgeContainer.Position = UDim2.new(1, -270, 0, 20)
+    badgeContainer.Position = UDim2.new(1, -270, 0, 80)
     badgeContainer.BackgroundTransparency = 1
-    badgeContainer.Parent = parentGui
+    badgeContainer.Parent = notifGui
     self.BadgeContainer = badgeContainer
 
     local layout = Instance.new("UIListLayout", badgeContainer)
@@ -103,6 +113,18 @@ end
 function NotificationQueue:ShowEvent(eventData)
     if self.IsShowing then return end
     self.IsShowing = true
+    
+    -- Normalize: NarrativeChainSystem puts Options inside Consequences
+    if not eventData.Options and eventData.Consequences and eventData.Consequences.Options then
+        eventData.Options = eventData.Consequences.Options
+    end
+    
+    if not eventData.Options or #eventData.Options == 0 then
+        print("[NotificationQueue] WARNING: Event has no Options, cannot show popup:", eventData.Id)
+        self.IsShowing = false
+        return
+    end
+    
     self.Popup:Show(eventData, function(choicePayload)
         self.IsShowing = false
         if choicePayload then

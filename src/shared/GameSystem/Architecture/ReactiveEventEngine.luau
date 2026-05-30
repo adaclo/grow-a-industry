@@ -251,10 +251,15 @@ function ReactiveEventEngine.Evaluate(triggerContext)
     -- Broadcast the event for UI or system processing
     local EventBus = require(script.Parent:WaitForChild("EventBus"))
     -- Clone selectedEvent structure so we can pass triggerContext as Context safely
+    local eventOptions = selectedEvent.Options
+    if not eventOptions and selectedEvent.Consequences and selectedEvent.Consequences.Options then
+        eventOptions = selectedEvent.Consequences.Options
+    end
     local eventPayload = {
         Id = selectedEvent.Id,
         Title = selectedEvent.Title,
         Description = selectedEvent.Description,
+        Options = eventOptions,
         Consequences = selectedEvent.Consequences,
         Context = triggerContext
     }
