@@ -22,6 +22,16 @@ local OUTCOMES = {
     EVENT_BURNOUT = {Name = "Producer Burnout", Type = "Negative"}
 }
 
+local PRODUCTION_TIERS = {
+    {Name = "Bedroom Demo", BaseCost = 0, RewardMult = 0.15, StressMult = 0.3, ViralBonus = 5},
+    {Name = "Cheap Production", BaseCost = 100, RewardMult = 0.5, StressMult = 0.6, ViralBonus = 0},
+    {Name = "Professional", BaseCost = 500, RewardMult = 1.0, StressMult = 1.0, ViralBonus = 0},
+    {Name = "Premium", BaseCost = 1000, RewardMult = 2.0, StressMult = 1.5, ViralBonus = -5},
+}
+
+SongSystem.PRODUCTION_TIERS = PRODUCTION_TIERS
+
+
 function SongSystem.GetArtistIdentity()
     local state = PlayerDataManager.GetState()
     local genres = state.Genres
@@ -66,19 +76,27 @@ function SongSystem.GetArtistIdentity()
     return prefix .. " " .. topGenre .. " " .. (perception > 50 and "Artist" or "Producer")
 end
 
+function SongSystem.GetAvailableTier(sliders)
+    local budget = sliders.Budget or 0
+    if budget >= 0.75 then return PRODUCTION_TIERS[4]
+    elseif budget >= 0.4 then return PRODUCTION_TIERS[3]
+    elseif budget >= 0.15 then return PRODUCTION_TIERS[2]
+    else return PRODUCTION_TIERS[1]
+    end
+end
+
 function SongSystem.CalculateEstimate(sliders)
-    -- Sliders: Commercial (0=Exp, 1=Comm), Budget (0-1), Promotion (0-1), Originality (0=Safe, 1=Risky)
-    local cost = 50 + (sliders.Budget * 1000) + (sliders.Promotion * 500)
-    local stress = 5 + (sliders.Budget * 15) + (sliders.Promotion * 20)
-    
+    local tier = SongSystem.GetAvailableTier(sliders)
+    local cost = tier.BaseCost + (sliders.Promotion * 500)
+    local stress = math.floor((5 + (sliders.Promotion * 20)) * tier.StressMult)
     local risk = (sliders.Originality * 50) + (sliders.Budget * 20)
-    local reward = (sliders.Budget * 40) + (sliders.Promotion * 40) + (sliders.Commercial * 20)
-    
+    local reward = ((sliders.Budget * 40) + (sliders.Promotion * 40) + (sliders.Commercial * 20)) * tier.RewardMult
     return {
         Cost = math.floor(cost),
-        Stress = math.floor(stress),
+        Stress = stress,
         Risk = math.floor(risk),
-        RewardPotential = math.floor(reward)
+        RewardPotential = math.floor(reward),
+        TierName = tier.Name
     }
 end
 
@@ -86,6 +104,7 @@ function SongSystem.ReleaseSong(sliders, targetGenre)
     local state = PlayerDataManager.GetState()
     local myStats = state.Stats
     local estimates = SongSystem.CalculateEstimate(sliders)
+    local tier = SongSystem.GetAvailableTier(sliders)
     
     local EventBus = require(script.Parent:WaitForChild("Architecture"):WaitForChild("EventBus"))
     local ModifierSystem = require(script.Parent:WaitForChild("Architecture"):WaitForChild("ModifierSystem"))
@@ -107,7 +126,7 @@ function SongSystem.ReleaseSong(sliders, targetGenre)
     -- 2. Threshold Modifiers
     local negativeThreshold = ModifierSystem.Calculate("NegativeChance", 15 + (currentStress / 5))
     local hitThreshold = ModifierSystem.Calculate("HitChance", 85 - (currentStress / 10) + (sliders.Budget * 15) + (sliders.Promotion * 10))
-    local viralThreshold = ModifierSystem.Calculate("ViralChance", 95 - (currentStress / 15) + (sliders.Originality * 10) + (sliders.Promotion * 5))
+    local viralThreshold = ModifierSystem.Calculate("ViralChance", 95 - (currentStress / 15) + (sliders.Originality * 10) + (sliders.Promotion * 5)) + tier.ViralBonus
     
     -- Consistency Penalty logic
     local identityMismatch = 0
@@ -150,6 +169,14 @@ function SongSystem.ReleaseSong(sliders, targetGenre)
             communityChanges["Haters"] = 100
             communityChanges["LoyalFans"] = -20
         end
+    elseif tier.Name == "Bedroom Demo" and roll > 93 then
+        outcome = OUTCOMES.SUCCESS_VIRAL
+        moneyGained = math.random(200, 800)
+        fameGained = math.random(100, 500)
+        followersGained = math.random(500, 2000)
+        repChange = 20
+        desc = "Your bedroom demo went viral! DIY authenticity wins."
+        table.insert(specialEvents, "DIY Viral Moment")
     elseif roll > viralThreshold then
         outcome = OUTCOMES.SUCCESS_VIRAL
         moneyGained = math.random(500, 2000) * (1 + sliders.Promotion)
@@ -174,7 +201,8 @@ function SongSystem.ReleaseSong(sliders, targetGenre)
         communityChanges["LoyalFans"] = 200
     else
         outcome = OUTCOMES.SUCCESS_MODERATE
-        moneyGained = math.random(estimates.Cost * 0.5, estimates.Cost * 1.5)
+        local baseMoney = math.max(100, estimates.Cost)
+        moneyGained = math.random(baseMoney * 0.5, baseMoney * 1.5)
         fameGained = math.random(10, 100)
         followersGained = math.random(50, 200)
         repChange = 2
@@ -202,24 +230,45 @@ function SongSystem.ReleaseSong(sliders, targetGenre)
     -- 3. Final Multipliers from Modifiers
     moneyGained = ModifierSystem.Calculate("SongRevenue", moneyGained)
     
+    -- Apply Tier Multipliers
+    moneyGained = moneyGained * tier.RewardMult
+    fameGained = fameGained * tier.RewardMult
+    followersGained = followersGained * tier.RewardMult
+    
     -- Calculate net money
     local netMoneyGained = moneyGained - estimates.Cost
+
+    local specialEvents = {}
+    if outcome == OUTCOMES.EVENT_SOLD_OUT then
+        table.insert(specialEvents, "Underground fans hated this commercial direction.")
+    elseif outcome == OUTCOMES.SUCCESS_CULT then
+        table.insert(specialEvents, "Niche communities are obsessed with this release.")
+    end
+    if identityMismatch > 0 then
+        table.insert(specialEvents, "Fans were confused by the sudden change in style.")
+    end
+    if finalStressAdd > 15 then
+        table.insert(specialEvents, "The stressful production took a toll on the artist.")
+    end
 
     -- 4. Build Final Payload
     local finalResult = {
         Success = true,
-        Title = outcome.Name,
-        Description = desc,
-        Outcome = outcome.Name,
+        Title = "SONG RELEASED",
+        Description = string.format("%s\n\nOutcome: %s | Production: %s", desc, outcome.Name, tier.Name),
         ResultType = outcome.Type,
-        MoneyGained = math.floor(netMoneyGained),
-        FameGained = math.floor(fameGained),
-        FollowersGained = math.floor(followersGained),
-        StressChange = math.floor(finalStressAdd),
-        RepChange = math.floor(repChange),
+        StatChanges = {
+            Money = math.floor(netMoneyGained),
+            Fame = math.floor(fameGained),
+            Followers = math.floor(followersGained),
+            Stress = math.floor(finalStressAdd),
+            Reputation = math.floor(repChange),
+        },
         CommunityChanges = communityChanges,
+        SpecialEvents = specialEvents,
         PerceptionChange = pChange,
         GenreUpdate = targetGenre,
+        TierName = tier.Name,
         HistoryData = {
             Sliders = sliders,
             Genre = targetGenre,
@@ -227,6 +276,9 @@ function SongSystem.ReleaseSong(sliders, targetGenre)
             Timestamp = os.time()
         }
     }
+    
+    local PayloadLogger = require(script.Parent:WaitForChild("PayloadLogger"))
+    PayloadLogger.Log(finalResult)
     
     print("[SongSystem] Outcome generated. Emitting SONG_RELEASED...")
     EventBus.Emit("SONG_RELEASED", finalResult)

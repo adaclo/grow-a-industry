@@ -311,6 +311,7 @@ function UpgradeMenu:CreateRow(upgradeData)
             if money >= nextLevelData.Price then
                 PlayerDataManager.UpdateStat("Money", -nextLevelData.Price)
                 PlayerDataManager.UpdateLevel(upgradeData.Id, currentLevel + 1)
+                PlayerDataManager.CalculateStudioLevel()
                 
                 -- The Refresh will be handled by the generic event, but we can update visibility here
                 if upgradeData.Id == "Computer" then

@@ -113,9 +113,80 @@ function DecisionPopup:Show(event, onDecision)
         btn.Parent = self.OptionsList
         Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
 
+        if opt.Expected and #opt.Expected > 0 then
+            -- Expand the button to fit expected text
+            btn.Size = UDim2.new(1, 0, 0, 55)
+            btn.TextYAlignment = Enum.TextYAlignment.Top
+            local pad = Instance.new("UIPadding", btn)
+            pad.PaddingTop = UDim.new(0, 8)
+            
+            local expectedFrame = Instance.new("Frame")
+            expectedFrame.Size = UDim2.new(1, 0, 0, 20)
+            expectedFrame.Position = UDim2.new(0, 0, 1, -25)
+            expectedFrame.BackgroundTransparency = 1
+            expectedFrame.Parent = btn
+            
+            local eList = Instance.new("UIListLayout", expectedFrame)
+            eList.FillDirection = Enum.FillDirection.Horizontal
+            eList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+            eList.Padding = UDim.new(0, 10)
+            
+            local eLabel = Instance.new("TextLabel")
+            eLabel.Text = "Expected: "
+            eLabel.Font = Enum.Font.GothamMedium
+            eLabel.TextSize = 11
+            eLabel.TextColor3 = COLORS.SUBTEXT
+            eLabel.Size = UDim2.new(0, 0, 1, 0)
+            eLabel.AutomaticSize = Enum.AutomaticSize.X
+            eLabel.BackgroundTransparency = 1
+            eLabel.Parent = expectedFrame
+            
+            for _, expText in ipairs(opt.Expected) do
+                local t = Instance.new("TextLabel")
+                t.Text = expText
+                t.Font = Enum.Font.GothamBold
+                t.TextSize = 11
+                if string.sub(expText, 1, 1) == "+" then
+                    t.TextColor3 = COLORS.POSITIVE
+                elseif string.sub(expText, 1, 1) == "-" then
+                    t.TextColor3 = COLORS.NEGATIVE
+                else
+                    t.TextColor3 = COLORS.TEXT
+                end
+                t.Size = UDim2.new(0, 0, 1, 0)
+                t.AutomaticSize = Enum.AutomaticSize.X
+                t.BackgroundTransparency = 1
+                t.Parent = expectedFrame
+            end
+        end
+
         btn.MouseButton1Click:Connect(function()
-            local result = opt.Effect()
-            self:ShowResult(result, onDecision)
+            local effectResult = opt.Effect(event.Context and event.Context.artistId)
+            local resultText = ""
+            local payload = nil
+            
+            if type(effectResult) == "table" and effectResult.Title then
+                -- This is a standard ResultPayload
+                self:Hide()
+                if onDecision then onDecision(effectResult) end
+            elseif type(effectResult) == "table" then
+                -- Legacy fallback
+                resultText = effectResult.Description or ""
+                payload = effectResult.Payload
+                self:ShowResult(resultText, function()
+                    if onDecision then
+                        onDecision(payload)
+                    end
+                end)
+            else
+                -- Legacy fallback
+                resultText = effectResult or ""
+                self:ShowResult(resultText, function()
+                    if onDecision then
+                        onDecision(payload)
+                    end
+                end)
+            end
         end)
     end
 

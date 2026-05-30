@@ -228,11 +228,19 @@ end
 
 function ArtistsMenu:CreateDiscoveryButton(parent, act)
     local btn = Instance.new("TextButton")
-    btn.BackgroundColor3 = COLORS.BACKGROUND
+    btn.BackgroundColor3 = COLORS.PANEL
     btn.Text = ""
     btn.ZIndex = 110
+    btn.AutoButtonColor = false
     btn.Parent = parent
     Instance.new("UICorner", btn)
+    
+    local stroke = Instance.new("UIStroke")
+    stroke.Thickness = 2
+    stroke.Color = COLORS.ACCENT_NEON
+    stroke.Transparency = 0
+    stroke.Parent = btn
+
     local label = Instance.new("TextLabel")
     label.Text = act.Icon .. " " .. act.Name
     label.Font = FONTS.SUBTITLE
@@ -242,38 +250,66 @@ function ArtistsMenu:CreateDiscoveryButton(parent, act)
     label.BackgroundTransparency = 1
     label.ZIndex = 111
     label.Parent = btn
-    self.DiscoveryButtons[act.Id] = {Button = btn, Label = label, Action = act}
+    
+    self.DiscoveryButtons[act.Id] = {Button = btn, Label = label, Stroke = stroke, Action = act, LastState = nil}
+    
+    btn.MouseEnter:Connect(function()
+        local data = self.DiscoveryButtons[act.Id]
+        if data and data.LastState == "READY" then
+            TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(40,40,40)}):Play()
+        end
+    end)
+    btn.MouseLeave:Connect(function()
+        local data = self.DiscoveryButtons[act.Id]
+        local targetColor = (data and data.LastState == "READY") and COLORS.PANEL or COLORS.LOCKED
+        TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = targetColor}):Play()
+    end)
+
     btn.MouseButton1Click:Connect(function()
         local state, reason = ArtistSystem.GetActionState(act.Id)
         if state == "LOCKED" or state == "FULL" or state == "COOLDOWN" then return end
         if self.IsProcessing then return end
         self.IsProcessing = true
-        local success, result = pcall(function() return ArtistSystem.PerformAction(act.Id) end)
-        if success and result and result.Success then 
-            self.ResultPopup:Show(result) 
-            if self.OnActionTriggered then self.OnActionTriggered() end
-        end
-        task.wait(1)
-        self.IsProcessing = false
+        
+        task.spawn(function()
+            local success, result = pcall(function() return ArtistSystem.PerformAction(act.Id) end)
+            if success and result and result.Success then 
+                pcall(function() self.ResultPopup:Show(result) end)
+                if self.OnActionTriggered then pcall(function() self.OnActionTriggered() end) end
+            elseif not success then
+                warn("[ArtistsMenu] Error executing discovery action:", result)
+            end
+            task.wait(1)
+            self.IsProcessing = false
+        end)
     end)
 end
 
 function ArtistsMenu:UpdateCooldownUI()
     -- Update Discovery Buttons
     for id, data in pairs(self.DiscoveryButtons) do
-        local state = ArtistSystem.GetActionState(id)
+        local state, reason = ArtistSystem.GetActionState(id)
         if state == "READY" then
-            data.Button.BackgroundColor3 = COLORS.BACKGROUND
+            data.LastState = "READY"
+            data.Button.BackgroundColor3 = COLORS.PANEL
+            data.Label.Text = data.Action.Icon .. " " .. data.Action.Name
             data.Label.TextColor3 = COLORS.TEXT_PRIMARY
             data.Button.Active = true
+            if data.Stroke then data.Stroke.Transparency = 0 end
         elseif state == "LOCKED" or state == "FULL" then
+            data.LastState = "LOCKED"
             data.Button.BackgroundColor3 = COLORS.LOCKED
+            data.Label.Text = "LOCKED"
             data.Label.TextColor3 = COLORS.NEGATIVE
             data.Button.Active = false
+            if data.Stroke then data.Stroke.Transparency = 1 end
         elseif state == "COOLDOWN" then
+            data.LastState = "COOLDOWN"
             data.Button.BackgroundColor3 = COLORS.COOLDOWN
+            data.Label.Text = "⏳ " .. (reason or "Wait")
             data.Label.TextColor3 = COLORS.GOLD
             data.Button.Active = false
+            if data.Stroke then data.Stroke.Transparency = 0.8 end
         end
     end
 
@@ -289,7 +325,7 @@ function ArtistsMenu:UpdateCooldownUI()
                 data.Label.Text = "READY"
                 data.Label.TextColor3 = COLORS.POSITIVE
                 data.Label.TextSize = 9
-                data.Button.BackgroundColor3 = COLORS.ACCENT
+                data.Button.BackgroundColor3 = COLORS.PANEL
                 if data.ClickBtn then
                     data.ClickBtn.Active = true
                     data.ClickBtn.AutoButtonColor = true
@@ -307,7 +343,7 @@ function ArtistsMenu:UpdateCooldownUI()
                     task.delay(0.25, function()
                         if data.LastState == "READY" then
                             TweenService:Create(data.Button, TweenInfo.new(0.3), {
-                                BackgroundColor3 = COLORS.ACCENT
+                                BackgroundColor3 = COLORS.PANEL
                             }):Play()
                         end
                     end)
@@ -490,13 +526,13 @@ function ArtistsMenu:RenderManageMenu(artist)
     -- 2. STATS PANEL
     local statsPanel = Instance.new("Frame")
     statsPanel.Name = "StatsPanel"
-    statsPanel.Size = UDim2.new(1, 0, 0, 120)
+    statsPanel.Size = UDim2.new(1, 0, 0, 150)
     statsPanel.BackgroundTransparency = 1
     statsPanel.LayoutOrder = 2
     statsPanel.ZIndex = 205
     statsPanel.Parent = dc
     local statsList = Instance.new("UIListLayout")
-    statsList.Padding = UDim.new(0, 6)
+    statsList.Padding = UDim.new(0, 10)
     statsList.Parent = statsPanel
     
     local statsData = {
@@ -518,24 +554,38 @@ function ArtistsMenu:RenderManageMenu(artist)
         end
 
         local row = Instance.new("Frame")
-        row.Size = UDim2.new(1, 0, 0, 22)
+        row.Size = UDim2.new(1, 0, 0, 26)
         row.BackgroundTransparency = 1
         row.ZIndex = 206
         row.Parent = statsPanel
+        
         local l = Instance.new("TextLabel")
         l.Text = s.N:upper()
-        l.Font = FONTS.BODY
-        l.TextSize = 8
-        l.TextColor3 = COLORS.TEXT_SECONDARY
-        l.Size = UDim2.new(1, 0, 0, 10)
+        l.Font = FONTS.SUBTITLE
+        l.TextSize = 11
+        l.TextColor3 = COLORS.TEXT_PRIMARY
+        l.Size = UDim2.new(0.8, 0, 0, 14)
         l.TextXAlignment = Enum.TextXAlignment.Left
         l.BackgroundTransparency = 1
         l.ZIndex = 207
         l.Parent = row
+        
+        local vL = Instance.new("TextLabel")
+        vL.Text = tostring(math.floor(s.V))
+        vL.Font = FONTS.TITLE
+        vL.TextSize = 11
+        vL.TextColor3 = color
+        vL.Size = UDim2.new(0.2, 0, 0, 14)
+        vL.Position = UDim2.new(0.8, 0, 0, 0)
+        vL.TextXAlignment = Enum.TextXAlignment.Right
+        vL.BackgroundTransparency = 1
+        vL.ZIndex = 207
+        vL.Parent = row
+        
         local bg = Instance.new("Frame")
-        bg.Size = UDim2.new(1, 0, 0, 5)
-        bg.Position = UDim2.new(0, 0, 0, 14)
-        bg.BackgroundColor3 = Color3.new(0,0,0)
+        bg.Size = UDim2.new(1, 0, 0, 6)
+        bg.Position = UDim2.new(0, 0, 0, 18)
+        bg.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
         bg.ZIndex = 207
         bg.Parent = row
         Instance.new("UICorner", bg)
@@ -583,7 +633,7 @@ function ArtistsMenu:RenderManageMenu(artist)
     }
     for _, act in pairs(mActions) do
         local btn = Instance.new("Frame")
-        btn.BackgroundColor3 = COLORS.BACKGROUND
+        btn.BackgroundColor3 = COLORS.PANEL
         btn.ZIndex = 206
         btn.Active = false  -- must NOT intercept input; clickBtn handles all clicks
         btn.Parent = actionContainer
@@ -597,8 +647,8 @@ function ArtistsMenu:RenderManageMenu(artist)
 
         local nL = Instance.new("TextLabel")
         nL.Text = act.Icon .. " " .. act.Name
-        nL.Font = FONTS.SUBTITLE
-        nL.TextSize = 10
+        nL.Font = FONTS.TITLE
+        nL.TextSize = 12
         nL.TextColor3 = COLORS.TEXT_PRIMARY
         nL.Size = UDim2.new(1, 0, 0, 25)
         nL.BackgroundTransparency = 1
@@ -609,11 +659,11 @@ function ArtistsMenu:RenderManageMenu(artist)
         for i, eff in ipairs(act.Effects or {}) do
             local eL = Instance.new("TextLabel")
             eL.Text = eff.T
-            eL.Font = FONTS.BODY
-            eL.TextSize = 7
+            eL.Font = FONTS.SUBTITLE
+            eL.TextSize = 9
             eL.TextColor3 = eff.C
-            eL.Size = UDim2.new(1, 0, 0, 10)
-            eL.Position = UDim2.new(0, 0, 0, 20 + (i*8))
+            eL.Size = UDim2.new(1, 0, 0, 12)
+            eL.Position = UDim2.new(0, 0, 0, 18 + (i*10))
             eL.BackgroundTransparency = 1
             eL.ZIndex = 207
             eL.Parent = btn
@@ -651,7 +701,7 @@ function ArtistsMenu:RenderManageMenu(artist)
         end)
         clickBtn.MouseLeave:Connect(function()
             local entry = self.ManageButtons[act.Id]
-            local targetColor = (entry and entry.LastState == "READY") and COLORS.ACCENT or COLORS.BACKGROUND
+            local targetColor = (entry and entry.LastState == "READY") and COLORS.PANEL or COLORS.LOCKED
             TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = targetColor, Size = UDim2.new(1,0,1,0)}):Play()
         end)
 

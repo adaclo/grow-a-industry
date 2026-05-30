@@ -8,7 +8,9 @@ local state = {
         Reputation = 50,
         Stress = 10,
         Hype = 0,
-        Style = "Underground" -- Initial Style
+        Style = "Underground", -- Initial Style
+        RosterTension = 0, -- 0-100 Tension metric
+        LabelIdentity = "Starting Out"
     },
     Levels = {
         Computer = 1,
@@ -35,6 +37,8 @@ local state = {
     StudioLevel = 1,
     Artists = {},
     History = {},
+    ActiveChains = {},
+    Controversies = {},
 
     -- Simulation depth fields
     Memory = {},  -- label-level flags: { [key] = value }
@@ -108,6 +112,68 @@ function PlayerDataManager.UpdatePerception(amount: number)
     StateChanged:Fire("Perception", state.Perception)
 end
 
+function PlayerDataManager.UpdateRosterTension(amount: number)
+    if state.Stats.RosterTension then
+        state.Stats.RosterTension = math.clamp(state.Stats.RosterTension + amount, 0, 100)
+        StateChanged:Fire("RosterTension", state.Stats.RosterTension)
+    end
+end
+
+function PlayerDataManager.UpdateLabelIdentity(newIdentity: string)
+    if state.Stats.LabelIdentity ~= newIdentity then
+        state.Stats.LabelIdentity = newIdentity
+        StateChanged:Fire("LabelIdentity", newIdentity)
+    end
+end
+
+-- ── Narrative Chains ────────────────────────────────────────────────────────
+function PlayerDataManager.AddNarrativeChain(chainId: string, data)
+    state.ActiveChains[chainId] = data
+    StateChanged:Fire("ActiveChains", state.ActiveChains)
+end
+
+function PlayerDataManager.UpdateNarrativeChain(chainId: string, data)
+    if state.ActiveChains[chainId] then
+        for k, v in pairs(data) do
+            state.ActiveChains[chainId][k] = v
+        end
+        StateChanged:Fire("ActiveChains", state.ActiveChains)
+    end
+end
+
+function PlayerDataManager.RemoveNarrativeChain(chainId: string)
+    if state.ActiveChains[chainId] then
+        state.ActiveChains[chainId] = nil
+        StateChanged:Fire("ActiveChains", state.ActiveChains)
+    end
+end
+
+-- ── Controversies ───────────────────────────────────────────────────────────
+function PlayerDataManager.AddControversy(controversyData)
+    state.Controversies[controversyData.Id] = controversyData
+    StateChanged:Fire("Controversies", state.Controversies)
+end
+
+function PlayerDataManager.UpdateControversy(id: string, data)
+    if state.Controversies[id] then
+        for k, v in pairs(data) do
+            state.Controversies[id][k] = v
+        end
+        StateChanged:Fire("Controversies", state.Controversies)
+    end
+end
+
+function PlayerDataManager.RemoveControversy(id: string)
+    if state.Controversies[id] then
+        state.Controversies[id] = nil
+        StateChanged:Fire("Controversies", state.Controversies)
+    end
+end
+
+function PlayerDataManager.GetControversy(id: string)
+    return state.Controversies[id]
+end
+
 function PlayerDataManager.AddArtist(artistData)
     table.insert(state.Artists, artistData)
     local clone = {}
@@ -175,12 +241,28 @@ end
 -- ── Memory flags ──────────────────────────────────────────────────────────────
 function PlayerDataManager.SetMemoryFlag(key, value)
     state.Memory[key] = value
-    print(string.format("[PlayerDataManager] Memory: %s = %s", key, tostring(value)))
+    local displayVal = value
+    if type(value) == "table" then
+        displayVal = string.format("{Value=%s, Ticks=%s}", tostring(value.Value), tostring(value.TicksRemaining or "nil"))
+    end
+    print(string.format("[PlayerDataManager] Memory: %s = %s", key, tostring(displayVal)))
     StateChanged:Fire("Memory_" .. key, value)
 end
 
 function PlayerDataManager.GetMemoryFlag(key)
+    local val = state.Memory[key]
+    if type(val) == "table" then
+        return val.Value
+    end
+    return val
+end
+
+function PlayerDataManager.GetMemoryFlagRaw(key)
     return state.Memory[key]
+end
+
+function PlayerDataManager.GetAllMemoryFlags()
+    return state.Memory
 end
 
 -- ── Momentum ──────────────────────────────────────────────────────────────────

@@ -82,6 +82,7 @@ function StatsMenu.new(parentGui)
     self:CreateStatEntry("Followers", "")
     self:CreateStatEntry("Reputation", "%")
     self:CreateStatEntry("Stress", "%")
+    self:CreateStatEntry("RosterTension", "")
 
     -- Listen for updates
     PlayerDataManager.StateChanged:Connect(function()
@@ -103,7 +104,7 @@ function StatsMenu:CreateStatEntry(statName, suffix)
     Instance.new("UICorner").Parent = frame
 
     local nameLabel = Instance.new("TextLabel")
-    nameLabel.Text = statName:upper()
+    nameLabel.Text = statName == "RosterTension" and "ROSTER TENSION" or statName:upper()
     nameLabel.Font = FONTS.STAT_NAME
     nameLabel.TextSize = 14
     nameLabel.TextColor3 = COLORS.TEXT_SECONDARY
@@ -130,10 +131,24 @@ end
 function StatsMenu:Refresh()
     for statName, data in pairs(self.StatEntries) do
         local val = PlayerDataManager.GetStat(statName)
-        if data.Suffix == "$" then
+        if statName == "RosterTension" then
+            local tensionText = "Calm Roster"
+            if val >= 80 then tensionText = "Crisis Brewing"
+            elseif val >= 50 then tensionText = "Unstable Roster"
+            elseif val >= 25 then tensionText = "Mild Tension"
+            end
+            data.Label.Text = tensionText
+            
+            if val >= 80 then data.Label.TextColor3 = Color3.fromHex("#FF4444")
+            elseif val >= 50 then data.Label.TextColor3 = Color3.fromHex("#FFA500")
+            else data.Label.TextColor3 = COLORS.TEXT_PRIMARY end
+            
+        elseif data.Suffix == "$" then
             data.Label.Text = "$" .. string.format("%.0f", val)
+            data.Label.TextColor3 = COLORS.TEXT_PRIMARY
         else
             data.Label.Text = string.format("%.0f", val) .. (data.Suffix or "")
+            data.Label.TextColor3 = COLORS.TEXT_PRIMARY
         end
     end
 end

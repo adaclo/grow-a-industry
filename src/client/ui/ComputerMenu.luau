@@ -3,6 +3,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SharedModules = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameSystem")
 local PlayerDataManager = require(SharedModules:WaitForChild("PlayerDataManager"))
+local Config = require(SharedModules:WaitForChild("Config"))
 
 local ProduceSongMenu = require(script.Parent:WaitForChild("ProduceSongMenu"))
 local ResultPopup = require(script.Parent:WaitForChild("ResultPopup"))
@@ -11,6 +12,7 @@ local SocialMediaMenu = require(script.Parent:WaitForChild("SocialMediaMenu"))
 local ArtistsMenu = require(script.Parent:WaitForChild("ArtistsMenu"))
 local PlaceholderMenu = require(script.Parent:WaitForChild("PlaceholderMenu"))
 local DecisionPopup = require(script.Parent:WaitForChild("DecisionPopup"))
+local StressMenu = require(script.Parent:WaitForChild("StressMenu"))
 local EventSystem = require(SharedModules:WaitForChild("EventSystem"))
 local StyleSystem = require(SharedModules:WaitForChild("StyleSystem"))
 
@@ -49,7 +51,7 @@ function ComputerMenu.new(upgradeMenuInstance)
     -- Main Frame
     local mainFrame = Instance.new("Frame")
     mainFrame.Name = "MainFrame"
-    mainFrame.Size = UDim2.new(0, 700, 0, 500)
+    mainFrame.Size = UDim2.new(0, 850, 0, 480)
     mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
     mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
     mainFrame.BackgroundColor3 = COLORS.PANEL
@@ -87,11 +89,45 @@ function ComputerMenu.new(upgradeMenuInstance)
     title.Font = FONTS.TITLE
     title.TextSize = 28
     title.TextColor3 = COLORS.TEXT_PRIMARY
-    title.Size = UDim2.new(0.6, 0, 1, 0)
-    title.Position = UDim2.new(0.05, 0, 0, 0)
+    title.Size = UDim2.new(0.6, 0, 0, 40)
+    title.Position = UDim2.new(0.05, 0, 0, 10)
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.BackgroundTransparency = 1
     title.Parent = header
+
+    local subtitle = Instance.new("TextLabel")
+    subtitle.Text = "Manage your label, artists and releases."
+    subtitle.Font = FONTS.BODY
+    subtitle.TextSize = 14
+    subtitle.TextColor3 = COLORS.TEXT_SECONDARY
+    subtitle.Size = UDim2.new(0.6, 0, 0, 20)
+    subtitle.Position = UDim2.new(0.05, 0, 0, 45)
+    subtitle.TextXAlignment = Enum.TextXAlignment.Left
+    subtitle.BackgroundTransparency = 1
+    subtitle.Parent = header
+
+    -- Small Close Button
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Name = "CloseButton"
+    closeBtn.Text = "X"
+    closeBtn.Font = FONTS.TITLE
+    closeBtn.TextSize = 16
+    closeBtn.TextColor3 = COLORS.TEXT_SECONDARY
+    closeBtn.BackgroundColor3 = COLORS.BACKGROUND
+    closeBtn.Size = UDim2.new(0, 30, 0, 30)
+    closeBtn.Position = UDim2.new(1, -40, 0, 20)
+    closeBtn.Parent = header
+    Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
+    
+    closeBtn.MouseEnter:Connect(function()
+        TweenService:Create(closeBtn, TweenInfo.new(0.2), {BackgroundColor3 = COLORS.LOCKED, TextColor3 = COLORS.TEXT_PRIMARY}):Play()
+    end)
+    closeBtn.MouseLeave:Connect(function()
+        TweenService:Create(closeBtn, TweenInfo.new(0.2), {BackgroundColor3 = COLORS.BACKGROUND, TextColor3 = COLORS.TEXT_SECONDARY}):Play()
+    end)
+    closeBtn.MouseButton1Click:Connect(function()
+        self:Close()
+    end)
 
     -- Result Popup Instance
     self.ResultPopup = ResultPopup.new(screenGui)
@@ -102,12 +138,19 @@ function ComputerMenu.new(upgradeMenuInstance)
     self.StatsMenu = StatsMenu.new(mainFrame)
     self.SocialMediaMenu = SocialMediaMenu.new(mainFrame, self.ResultPopup)
     self.ArtistsMenu = ArtistsMenu.new(mainFrame, self.ResultPopup)
+    self.StressMenu = StressMenu.new(mainFrame, self.ResultPopup)
     self.ContractsMenu = PlaceholderMenu.new(mainFrame, "Contracts", "Review and sign deals with major labels, distributors, and sponsors.")
 
     -- Connect Events
     self.ProduceSongMenu.OnActionTriggered = function() self:CheckForRandomEvent() end
     self.SocialMediaMenu.OnActionTriggered = function() self:CheckForRandomEvent() end
     self.ArtistsMenu.OnActionTriggered = function() self:CheckForRandomEvent() end
+    self.StressMenu.OnActionTriggered = function() self:CheckForRandomEvent() end
+
+    local EventBus = require(SharedModules:WaitForChild("Architecture"):WaitForChild("EventBus"))
+    EventBus.Subscribe("SHOW_RESULT_POPUP", function(payload)
+        self.ResultPopup:Show(payload)
+    end)
 
     -- Grid Layout for Buttons
     local grid = Instance.new("Frame")
@@ -118,38 +161,41 @@ function ComputerMenu.new(upgradeMenuInstance)
     grid.Parent = innerContainer
 
     local uigrid = Instance.new("UIGridLayout")
-    uigrid.CellSize = UDim2.new(0.31, 0, 0, 140)
-    uigrid.CellPadding = UDim2.new(0.035, 0, 0.05, 0)
+    uigrid.CellSize = UDim2.new(0.31, 0, 0, 95)
+    uigrid.CellPadding = UDim2.new(0.03, 0, 0.05, 0)
     uigrid.Parent = grid
 
     -- Buttons
-    self:CreateButton(grid, "Produce Song", "Drop a new track and gain followers.", true, function()
+    self:CreateButton(grid, "🎵 Produce Song", "Drop a new track and gain followers.", true, function()
         self:OpenSubmenu("ProduceSong")
     end)
-    self:CreateButton(grid, "Social Media", "Interact with fans and posts.", true, function()
+    self:CreateButton(grid, "📱 Social Media", "Interact with fans and posts.", true, function()
         self:OpenSubmenu("SocialMedia")
     end)
-    self:CreateButton(grid, "Artists", "Manage your roster and signings.", true, function()
+    self:CreateButton(grid, "🎤 Artists", "Manage your roster and signings.", true, function()
         self:OpenSubmenu("Artists")
     end)
-    self:CreateButton(grid, "Contracts", "Review label and brand offers.", true, function()
-        self:OpenSubmenu("Contracts")
-    end)
-    self:CreateButton(grid, "Upgrade Studio", "Improve your gear and software.", true, function()
+    self:CreateButton(grid, "💻 Upgrade Studio", "Improve your gear and software.", true, function()
         self:Close()
         if self.UpgradeMenu then
             self.UpgradeMenu:Toggle(true)
         end
     end)
-    self:CreateButton(grid, "View Stats", "Check your career progress.", true, function()
+    self:CreateButton(grid, "🧠 Manage Stress", "Take breaks, go on vacation, and avoid burnout.", true, function()
+        self:OpenSubmenu("Stress")
+    end)
+    self:CreateButton(grid, "📊 View Stats", "Check your career progress.", true, function()
         self:OpenSubmenu("Stats")
     end)
-    self:CreateButton(grid, "Admin Debug", "Trigger events and disable cooldowns (DEV).", true, function()
-        self:TriggerDebugEvent()
+    self:CreateButton(grid, "🤝 Contracts", "Coming Soon", false, function()
+        self:OpenSubmenu("Contracts")
     end)
-    self:CreateButton(grid, "Close", "Exit the computer simulation.", true, function()
-        self:Close()
-    end)
+    
+    if Config.Debug.TestMode then
+        self:CreateButton(grid, "⚙️ Admin Debug", "Trigger events and disable cooldowns (DEV).", true, function()
+            self:TriggerDebugEvent()
+        end)
+    end
 
     -- Connections
     self.ProduceSongMenu.BackButton.MouseButton1Click:Connect(function()
@@ -175,6 +221,11 @@ function ComputerMenu.new(upgradeMenuInstance)
     self.ContractsMenu.BackButton.MouseButton1Click:Connect(function()
         self:TranslateInner(true)
         self.ContractsMenu:Toggle(false)
+    end)
+
+    self.StressMenu.BackButton.MouseButton1Click:Connect(function()
+        self:TranslateInner(true)
+        self.StressMenu:Toggle(false)
     end)
 
 
@@ -249,6 +300,8 @@ function ComputerMenu:OpenSubmenu(name)
         self.ArtistsMenu:Toggle(true)
     elseif name == "Contracts" then
         self.ContractsMenu:Toggle(true)
+    elseif name == "Stress" then
+        self.StressMenu:Toggle(true)
     end
 end
 
@@ -297,22 +350,13 @@ function ComputerMenu:Toggle(isVisible)
 end
 
 function ComputerMenu:CheckForRandomEvent()
-    local chance = 0.2 -- 20% chance after action
-    if math.random() < chance then
-        local event = EventSystem.GetRandomEvent()
-        if event then
-            self.DecisionPopup:Show(event, function()
-                StyleSystem.UpdateStyleFromHistory()
-            end)
-        end
-    end
+    -- Legacy events disabled in favor of ReactiveEventEngine
+    return
 end
 
 function ComputerMenu:TriggerDebugEvent()
-    local event = EventSystem.GetRandomEvent()
-    self.DecisionPopup:Show(event, function()
-        StyleSystem.UpdateStyleFromHistory()
-    end)
+    -- Legacy events disabled
+    return
 end
 
 return ComputerMenu

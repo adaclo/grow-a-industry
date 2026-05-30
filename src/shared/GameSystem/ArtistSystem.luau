@@ -5,9 +5,34 @@ local ArtistSystem = {
 		SocialMedia   = 60,
 		GiveBonus     = 180,
 		Rest          = 300,
-		BetterContract = 600
+		BetterContract = 600,
+		DMFamous      = 60,
+		SignUnderground = 120,
+		SignMainstream = 240,
+		DuoNew        = 120,
+		StudioRest    = 60,
+		StudioVacation = 300,
+		StudioBreak   = 600
 	}
 }
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local SharedModules     = script.Parent
+local PlayerDataManager = require(SharedModules:WaitForChild("PlayerDataManager"))
+local ArtistGenerator   = require(SharedModules:WaitForChild("ArtistGenerator"))
+local EventBus          = require(SharedModules:WaitForChild("Architecture"):WaitForChild("EventBus"))
+
+function ArtistSystem.SetStudioCooldown(actionId, duration)
+	local state = PlayerDataManager.GetState()
+	if not state.StudioCooldowns then state.StudioCooldowns = {} end
+	state.StudioCooldowns[actionId] = os.time() + duration
+end
+
+function ArtistSystem.GetStudioCooldown(actionId)
+	local state = PlayerDataManager.GetState()
+	if not state.StudioCooldowns then return 0 end
+	return state.StudioCooldowns[actionId] or 0
+end
 
 -- Single source of truth: maps every UI action ID to the key stored in artist.Cooldowns.
 local ACTION_TO_COOLDOWN_KEY = {
@@ -18,12 +43,6 @@ local ACTION_TO_COOLDOWN_KEY = {
 	DropArtist   = "Drop",
 }
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local SharedModules     = script.Parent
-local PlayerDataManager = require(SharedModules:WaitForChild("PlayerDataManager"))
-local ArtistGenerator   = require(SharedModules:WaitForChild("ArtistGenerator"))
-local EventBus          = require(SharedModules:WaitForChild("Architecture"):WaitForChild("EventBus"))
-
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Helpers
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -32,6 +51,14 @@ function ArtistSystem.CheckCooldown(artist, actionId)
 	if not artist.Cooldowns then return true end
 	local endTime = artist.Cooldowns[actionId] or 0
 	return os.time() >= endTime
+end
+
+function ArtistSystem.HasTrait(artist, traitName)
+    if not artist.Traits then return false end
+    for _, t in ipairs(artist.Traits) do
+        if t == traitName then return true end
+    end
+    return false
 end
 
 -- Cooldown writes bypass EventBus — they are timing / entity-lifecycle state,
@@ -94,72 +121,200 @@ function ArtistSystem.PerformAction(actionId, targetId)
 
 	-- ── DMFamous ─────────────────────────────────────────────────────────────
 	if actionId == "DMFamous" then
+		ArtistSystem.SetStudioCooldown(actionId, ArtistSystem.COOLDOWNS.DMFamous)
 		results.Title = "DM Famous Artist"
 		local successChance = 10 + (myStats.Fame / 2) + (myStats.StudioLevel * 5)
 		if roll < successChance then
 			local artist = ArtistGenerator.Generate("Mainstream")
-			results.Outcome     = "Replied!"
-			results.Description = string.format(
-				"%s replied to your DM! They are interested in a contract.", artist.Name)
-			results.ResultType  = "Positive"
-			print("[ArtistSystem] Emitting ARTIST_SIGNED (DMFamous)")
-			EventBus.Emit("ARTIST_SIGNED", {
+			local payload = {
+				Success = true,
+				Title = "DM FAMOUS ARTIST",
+				Description = string.format("%s replied to your DM! They are interested in a contract.", artist.Name),
+				ResultType = "Positive",
 				addArtist = artist,
-				signType  = "Famous"
-			})
+				signType = "Famous",
+				SpecialEvents = {"New famous artist joined the label"}
+			}
+			require(script.Parent:WaitForChild("PayloadLogger")).Log(payload)
+			print("[ArtistSystem] Emitting ARTIST_SIGNED (DMFamous)")
+			EventBus.Emit("ARTIST_SIGNED", payload)
+			return payload
 		else
-			results.Outcome     = "Left on Read"
-			results.Description = "The artist didn't reply. Your studio might be too small or your fame too low."
-			results.ResultType  = "Negative"
+			local payload = {
+				Success = true,
+				Title = "DM FAMOUS ARTIST",
+				Description = "The artist didn't reply. Your studio might be too small or your fame too low.",
+				ResultType = "Negative",
+				Outcome = "Left on Read",
+				SpecialEvents = {}
+			}
+			require(script.Parent:WaitForChild("PayloadLogger")).Log(payload)
+			return payload
 		end
 
 	-- ── SignUnderground ───────────────────────────────────────────────────────
 	elseif actionId == "SignUnderground" then
+		ArtistSystem.SetStudioCooldown(actionId, ArtistSystem.COOLDOWNS.SignUnderground)
 		results.Title = "Sign Underground Artist"
 		local successChance = 75 + (myStats.Reputation / 2)
 		if state.Perception > 80 then successChance -= 30 end
 
 		if roll < successChance then
 			local artist = ArtistGenerator.Generate("Underground")
-			results.Outcome     = "Success"
-			results.Description = string.format("You signed %s! They're ready to grind.", artist.Name)
-			results.ResultType  = "Positive"
+			local payload = {
+				Success = true,
+				Title = "SIGN UNDERGROUND ARTIST",
+				Description = string.format("You signed %s! They're ready to grind.", artist.Name),
+				ResultType = "Positive",
+				addArtist = artist,
+				signType = "Underground",
+				CommunityChanges = {UndergroundAudience = 150},
+				PerceptionChange = -5,
+				SpecialEvents = {"New underground artist joined the label"}
+			}
+			require(script.Parent:WaitForChild("PayloadLogger")).Log(payload)
 			print("[ArtistSystem] Emitting ARTIST_SIGNED (Underground)")
-			EventBus.Emit("ARTIST_SIGNED", {
-				addArtist        = artist,
-				signType         = "Underground",
-				communityChanges = {UndergroundAudience = 150},
-				perceptionChange = -5
-			})
+			EventBus.Emit("ARTIST_SIGNED", payload)
+			return payload
 		else
-			results.Outcome     = "Rejection"
-			results.Description = "The artist decided to stay independent. They don't feel your label's vibe."
-			results.ResultType  = "Negative"
+			local payload = {
+				Success = true,
+				Title = "SIGN UNDERGROUND ARTIST",
+				Description = "The artist decided to stay independent. They don't feel your label's vibe.",
+				ResultType = "Negative",
+				Outcome = "Rejection",
+				SpecialEvents = {}
+			}
+			require(script.Parent:WaitForChild("PayloadLogger")).Log(payload)
+			return payload
 		end
+
+	-- ── DuoNew ────────────────────────────────────────────────────────────────
+	elseif actionId == "DuoNew" then
+		ArtistSystem.SetStudioCooldown(actionId, ArtistSystem.COOLDOWNS.DuoNew)
+		results.Title = "Sign New Duo"
+		local successChance = 30 + (myStats.Followers / 1000)
+		
+		if roll < successChance then
+			local artist = ArtistGenerator.Generate("New")
+			artist.Name = artist.Name .. " (Duo)"
+			local payload = {
+				Success = true,
+				Title = "DUO SIGNED",
+				Description = string.format("You signed the rising duo %s!", artist.Name),
+				ResultType = "Positive",
+				addArtist = artist,
+				signType = "Duo",
+				SpecialEvents = {"A new duo joined the label"}
+			}
+			require(script.Parent:WaitForChild("PayloadLogger")).Log(payload)
+			EventBus.Emit("ARTIST_SIGNED", payload)
+			return payload
+		else
+			local payload = {
+				Success = true,
+				Title = "DUO SIGNED",
+				Description = "The duo split up before you could sign them.",
+				ResultType = "Negative",
+				Outcome = "Disbanded",
+				SpecialEvents = {}
+			}
+			require(script.Parent:WaitForChild("PayloadLogger")).Log(payload)
+			return payload
+		end
+
+	-- ── StudioRest ──────────────────────────────────────────────────────────
+	elseif actionId == "StudioRest" then
+		ArtistSystem.SetStudioCooldown(actionId, ArtistSystem.COOLDOWNS.StudioRest)
+		local stressReduction = -15
+		local currentStress = PlayerDataManager.GetStat("Stress")
+		local desc = "You took a short break and cleared your head."
+		if currentStress < 15 then
+			desc = "You're already feeling relaxed. The break was nice anyway."
+			stressReduction = -math.min(5, currentStress)
+		end
+		local payload = {
+			Success = true,
+			Title = "REST",
+			Description = desc,
+			ResultType = "Positive",
+			StatChanges = {Stress = stressReduction},
+			SpecialEvents = {}
+		}
+		require(script.Parent:WaitForChild("PayloadLogger")).Log(payload)
+		EventBus.Emit("ARTIST_RESTED", payload)
+		return payload
+
+	-- ── StudioVacation ─────────────────────────────────────────────────────
+	elseif actionId == "StudioVacation" then
+		local myMoney = PlayerDataManager.GetStat("Money")
+		if myMoney < 500 then
+			return {Success = false, Error = "Not enough money! Vacation costs $500."}
+		end
+		ArtistSystem.SetStudioCooldown(actionId, ArtistSystem.COOLDOWNS.StudioVacation)
+		local payload = {
+			Success = true,
+			Title = "VACATION",
+			Description = "You took a vacation and came back refreshed and inspired.",
+			ResultType = "Positive",
+			StatChanges = {Stress = -40, Money = -500},
+			SpecialEvents = {"Vacation vibes restored your creativity."}
+		}
+		require(script.Parent:WaitForChild("PayloadLogger")).Log(payload)
+		EventBus.Emit("ARTIST_RESTED", payload)
+		return payload
+
+	-- ── StudioBreak ────────────────────────────────────────────────────────
+	elseif actionId == "StudioBreak" then
+		ArtistSystem.SetStudioCooldown(actionId, ArtistSystem.COOLDOWNS.StudioBreak)
+		local payload = {
+			Success = true,
+			Title = "TAKE A BREAK",
+			Description = "You stepped away from the studio completely. The pressure is fading.",
+			ResultType = "Positive",
+			StatChanges = {Stress = -60},
+			SpecialEvents = {"Extended break fully recharged your mental energy."}
+		}
+		require(script.Parent:WaitForChild("PayloadLogger")).Log(payload)
+		EventBus.Emit("ARTIST_RESTED", payload)
+		return payload
 
 	-- ── SignMainstream ────────────────────────────────────────────────────────
 	elseif actionId == "SignMainstream" then
-		results.Title = "Sign Mainstream Artist"
 		if myStats.StudioLevel < 2 or myStats.Fame < 15 or myStats.Followers < 500 then
 			return {Success = false, Error = "REQUIREMENTS NOT MET! Need Studio Lvl 2, 15 Fame, and 500 Followers."}
 		end
+		ArtistSystem.SetStudioCooldown(actionId, ArtistSystem.COOLDOWNS.SignMainstream)
+		results.Title = "Sign Mainstream Artist"
 
 		local successChance = 45 + (myStats.Followers / 5000)
 		if roll < successChance then
 			local artist = ArtistGenerator.Generate("Mainstream")
-			results.Outcome     = "Contract Signed"
-			results.Description = string.format("Massive win! %s has joined your label.", artist.Name)
-			results.ResultType  = "Positive"
+			local payload = {
+				Success = true,
+				Title = "SIGN MAINSTREAM ARTIST",
+				Description = string.format("Massive win! %s has joined your label.", artist.Name),
+				ResultType = "Positive",
+				addArtist = artist,
+				signType = "Mainstream",
+				PerceptionChange = 5,
+				SpecialEvents = {"New mainstream artist joined the label"}
+			}
+			require(script.Parent:WaitForChild("PayloadLogger")).Log(payload)
 			print("[ArtistSystem] Emitting ARTIST_SIGNED (Mainstream)")
-			EventBus.Emit("ARTIST_SIGNED", {
-				addArtist        = artist,
-				signType         = "Mainstream",
-				perceptionChange = 5
-			})
+			EventBus.Emit("ARTIST_SIGNED", payload)
+			return payload
 		else
-			results.Outcome     = "Negotiation Failed"
-			results.Description = "The artist's manager asked for too much. Negotiation stalled."
-			results.ResultType  = "Negative"
+			local payload = {
+				Success = true,
+				Title = "SIGN MAINSTREAM ARTIST",
+				Description = "The artist's manager asked for too much. Negotiation stalled.",
+				ResultType = "Negative",
+				Outcome = "Negotiation Failed",
+				SpecialEvents = {}
+			}
+			require(script.Parent:WaitForChild("PayloadLogger")).Log(payload)
+			return payload
 		end
 
 	-- ── GiveBonus ─────────────────────────────────────────────────────────────
@@ -177,17 +332,22 @@ function ArtistSystem.PerformAction(actionId, targetId)
 
 		ArtistSystem.SetCooldown(targetId, "GiveBonus", ArtistSystem.COOLDOWNS.GiveBonus)
 
-		results.Outcome     = "Happy Artist"
-		results.Description = string.format(
-			"You gave %s a $1,000 bonus. They are more loyal but their ego grew.", artist.Name)
-		results.ResultType  = "Positive"
+		local payload = {
+			Success = true,
+			Title = "FINANCIAL BONUS",
+			Description = string.format("You gave %s a $1,000 bonus.", artist.Name),
+			ResultType = "Positive",
+			StatChanges = {Money = -cost},
+			SpecialEvents = {"Loyalty increased", "Ego increased"},
+			artistId = targetId,
+			artistUpdate = {Loyalty = newLoyalty, Ego = newEgo, Mood = "Happy"}
+		}
+		
+		require(script.Parent:WaitForChild("PayloadLogger")).Log(payload)
 
 		print("[ArtistSystem] Emitting ARTIST_BONUS_PAID")
-		EventBus.Emit("ARTIST_BONUS_PAID", {
-			artistId     = targetId,
-			artistUpdate = {Loyalty = newLoyalty, Ego = newEgo, Mood = "Happy"},
-			statChanges  = {Money = -cost}
-		})
+		EventBus.Emit("ARTIST_BONUS_PAID", payload)
+		return payload
 
 	-- ── TalkToArtist ─────────────────────────────────────────────────────────
 	elseif actionId == "TalkToArtist" then
@@ -206,16 +366,21 @@ function ArtistSystem.PerformAction(actionId, targetId)
 
 		ArtistSystem.SetCooldown(targetId, "TalkToArtist", ArtistSystem.COOLDOWNS.Talk)
 
-		results.Outcome     = "Productive Talk"
-		results.Description = string.format(
-			"You talked with %s. They feel heard and less stressed.", artist.Name)
-		results.ResultType  = "Positive"
+		local payload = {
+			Success = true,
+			Title = "ONE-ON-ONE TALK",
+			Description = string.format("You talked with %s. They feel heard and less stressed.", artist.Name),
+			ResultType = "Positive",
+			SpecialEvents = {"Loyalty increased", "Ego decreased", "Stress decreased"},
+			artistId = targetId,
+			artistUpdate = {Loyalty = newLoyalty, Ego = newEgo, Stress = newStress, Mood = "Motivated"}
+		}
+		
+		require(script.Parent:WaitForChild("PayloadLogger")).Log(payload)
 
 		print("[ArtistSystem] Emitting ARTIST_TALKED")
-		EventBus.Emit("ARTIST_TALKED", {
-			artistId     = targetId,
-			artistUpdate = {Loyalty = newLoyalty, Ego = newEgo, Stress = newStress, Mood = "Motivated"}
-		})
+		EventBus.Emit("ARTIST_TALKED", payload)
+		return payload
 
 	-- ── RecordSong ───────────────────────────────────────────────────────────
 	elseif actionId == "RecordSong" then
@@ -232,6 +397,18 @@ function ArtistSystem.PerformAction(actionId, targetId)
 		local quality   = (artist.Talent * 0.7) + math.random(1, 30)
 		local newMood   = artist.Mood
 		local statChanges = {}
+        
+        local cooldownMult = 1.0
+
+        if ArtistSystem.HasTrait(artist, "Perfectionist") then
+            quality = quality + 15
+            cooldownMult = 1.5
+            newStress = math.clamp(newStress - 5, 0, 100) -- they like recording
+        end
+        if ArtistSystem.HasTrait(artist, "UnstableGenius") then
+            -- Massive variance
+            quality = quality + math.random(-35, 45)
+        end
 
 		if quality > 90 then
 			results.Outcome     = "CHART TOPPER"
@@ -253,15 +430,24 @@ function ArtistSystem.PerformAction(actionId, targetId)
 			statChanges = {Money = 1000}
 		end
 
-		ArtistSystem.SetCooldown(targetId, "RecordSong", ArtistSystem.COOLDOWNS.RecordSong)
+		local payload = {
+			Success = true,
+			Title = "RECORDING SESSION",
+			Description = results.Description .. "\n\nOutcome: " .. results.Outcome,
+			ResultType = results.ResultType,
+			StatChanges = statChanges,
+			SpecialEvents = {"Artist stress increased"},
+			artistId = targetId,
+			artistUpdate = {Stress = newStress, Mood = newMood}
+		}
+
+		ArtistSystem.SetCooldown(targetId, "RecordSong", ArtistSystem.COOLDOWNS.RecordSong * cooldownMult)
+
+		require(script.Parent:WaitForChild("PayloadLogger")).Log(payload)
 
 		print("[ArtistSystem] Emitting ARTIST_RECORDED (outcome: " .. results.Outcome .. ")")
-		EventBus.Emit("ARTIST_RECORDED", {
-			artistId     = targetId,
-			outcome      = results.Outcome,
-			artistUpdate = {Stress = newStress, Mood = newMood},
-			statChanges  = statChanges
-		})
+		EventBus.Emit("ARTIST_RECORDED", payload)
+		return payload
 
 	-- ── RestArtist ────────────────────────────────────────────────────────────
 	elseif actionId == "RestArtist" then
@@ -272,16 +458,21 @@ function ArtistSystem.PerformAction(actionId, targetId)
 
 		ArtistSystem.SetCooldown(targetId, "RestArtist", ArtistSystem.COOLDOWNS.Rest)
 
-		results.Outcome     = "Reset"
-		results.Description = string.format(
-			"%s is taking a break. They will be back refreshed.", artist.Name)
-		results.ResultType  = "Positive"
+		local payload = {
+			Success = true,
+			Title = "REST & RECOVERY",
+			Description = string.format("%s is taking a break. They will be back refreshed.", artist.Name),
+			ResultType = "Positive",
+			SpecialEvents = {"Stress completely removed"},
+			artistId = targetId,
+			artistUpdate = {Stress = 0, Mood = "Neutral"}
+		}
+
+		require(script.Parent:WaitForChild("PayloadLogger")).Log(payload)
 
 		print("[ArtistSystem] Emitting ARTIST_RESTED")
-		EventBus.Emit("ARTIST_RESTED", {
-			artistId     = targetId,
-			artistUpdate = {Stress = 0, Mood = "Neutral"}
-		})
+		EventBus.Emit("ARTIST_RESTED", payload)
+		return payload
 
 	-- ── DropArtist ────────────────────────────────────────────────────────────
 	elseif actionId == "DropArtist" then
@@ -291,7 +482,11 @@ function ArtistSystem.PerformAction(actionId, targetId)
 		if not artist then return {Success = false, Error = "Artist not found!"} end
 
 		local statChanges = {}
-		if roll < 20 then
+        local breakupChance = 20
+        if ArtistSystem.HasTrait(artist, "Loyal") then breakupChance = breakupChance / 2 end
+        if ArtistSystem.HasTrait(artist, "DramaMagnet") then breakupChance = breakupChance * 2 end
+        
+		if roll < breakupChance then
 			results.Outcome     = "Ugly Breakup"
 			results.Description = string.format(
 				"%s is furious! They leaked a demo before leaving.", artist.Name)
@@ -303,13 +498,25 @@ function ArtistSystem.PerformAction(actionId, targetId)
 			results.ResultType  = "Neutral"
 		end
 
+		local payload = {
+			Success = true,
+			Title = "DROP ARTIST",
+			Description = results.Description .. "\n\nOutcome: " .. results.Outcome,
+			ResultType = results.ResultType,
+			StatChanges = statChanges,
+			artistId = targetId,
+			removeArtist = true,
+			SpecialEvents = {}
+		}
+		if roll < breakupChance then
+			table.insert(payload.SpecialEvents, "The artist leaked a demo on their way out.")
+		end
+
+		require(script.Parent:WaitForChild("PayloadLogger")).Log(payload)
+
 		print("[ArtistSystem] Emitting ARTIST_DROPPED (outcome: " .. results.Outcome .. ")")
-		EventBus.Emit("ARTIST_DROPPED", {
-			artistId     = targetId,
-			outcome      = results.Outcome,
-			statChanges  = statChanges,
-			removeArtist = true
-		})
+		EventBus.Emit("ARTIST_DROPPED", payload)
+		return payload
 	end
 
 	return results
@@ -357,11 +564,27 @@ function ArtistSystem.GetActionState(actionId, artistId)
 		if myStats.Fame         < 15 then return "LOCKED", "Fame 15+"       end
 		if myStats.Followers    < 500 then return "LOCKED", "500+ Followers" end
 		if #state.Artists >= myStats.StudioLevel then return "FULL", "Upgrade Studio" end
+		
+		local cd = ArtistSystem.GetStudioCooldown(actionId) - os.time()
+		if cd > 0 then return "COOLDOWN", math.ceil(cd) .. "s" end
 		return "READY"
 	end
 
-	if actionId == "SignUnderground" or actionId == "DMFamous" then
+	if actionId == "SignUnderground" or actionId == "DMFamous" or actionId == "DuoNew" then
 		if #state.Artists >= myStats.StudioLevel then return "FULL", "Upgrade Studio" end
+		
+		local cd = ArtistSystem.GetStudioCooldown(actionId) - os.time()
+		if cd > 0 then return "COOLDOWN", math.ceil(cd) .. "s" end
+		return "READY"
+	end
+
+	if actionId == "StudioRest" or actionId == "StudioVacation" or actionId == "StudioBreak" then
+		if actionId == "StudioVacation" then
+			local money = PlayerDataManager.GetStat("Money")
+			if money < 500 then return "LOCKED", "Need $500" end
+		end
+		local cd = ArtistSystem.GetStudioCooldown(actionId) - os.time()
+		if cd > 0 then return "COOLDOWN", math.ceil(cd) .. "s" end
 		return "READY"
 	end
 

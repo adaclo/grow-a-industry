@@ -1,4 +1,5 @@
 local EventSystem = {}
+EventSystem.LEGACY_DISABLED = true
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SharedModules = script.Parent
@@ -150,6 +151,7 @@ local REQUESTS = {
 }
 
 function EventSystem.GetRandomEvent()
+    if EventSystem.LEGACY_DISABLED then return nil end
     local totalWeight = 0
     for _, e in pairs(EVENTS) do totalWeight += e.Weight end
     

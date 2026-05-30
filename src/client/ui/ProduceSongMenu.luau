@@ -61,14 +61,26 @@ function ProduceSongMenu.new(parentGui, resultPopup)
     header.Parent = mainFrame
 
     local title = Instance.new("TextLabel")
-    title.Text = "MUSIC PRODUCTION STUDIO"
+    title.Text = "🎵 PRODUCE SONG"
     title.Font = FONTS.TITLE
-    title.TextSize = 18
+    title.TextSize = 24
     title.TextColor3 = COLORS.TEXT_PRIMARY
-    title.Size = UDim2.new(0.5, 0, 1, 0)
-    title.Position = UDim2.new(0.25, 0, 0, 0)
+    title.Size = UDim2.new(1, 0, 0, 30)
+    title.Position = UDim2.new(0, 0, 0, 10)
+    title.TextXAlignment = Enum.TextXAlignment.Center
     title.BackgroundTransparency = 1
     title.Parent = header
+
+    local subtitle = Instance.new("TextLabel")
+    subtitle.Text = "Shape your sound. Plan your release."
+    subtitle.Font = FONTS.BODY
+    subtitle.TextSize = 14
+    subtitle.TextColor3 = COLORS.TEXT_SECONDARY
+    subtitle.Size = UDim2.new(1, 0, 0, 20)
+    subtitle.Position = UDim2.new(0, 0, 0, 45)
+    subtitle.TextXAlignment = Enum.TextXAlignment.Center
+    subtitle.BackgroundTransparency = 1
+    subtitle.Parent = header
 
     local backBtn = Instance.new("TextButton")
     backBtn.Name = "BackButton"
@@ -82,20 +94,6 @@ function ProduceSongMenu.new(parentGui, resultPopup)
     backBtn.Parent = header
     self.BackButton = backBtn
 
-    local identityLabel = Instance.new("TextLabel")
-    identityLabel.Name = "IdentityLabel"
-    identityLabel.Text = "Current Identity: " .. SongSystem.GetArtistIdentity()
-    identityLabel.Font = FONTS.BODY
-    identityLabel.TextSize = 10
-    identityLabel.TextColor3 = COLORS.ACCENT
-    identityLabel.Size = UDim2.new(0.35, 0, 0, 30)
-    identityLabel.Position = UDim2.new(1, -10, 0, 25)
-    identityLabel.AnchorPoint = Vector2.new(1, 0)
-    identityLabel.TextXAlignment = Enum.TextXAlignment.Right
-    identityLabel.BackgroundTransparency = 1
-    identityLabel.Parent = header
-    self.IdentityLabel = identityLabel
-
     -- Content
     local content = Instance.new("Frame")
     content.Size = UDim2.new(1, -40, 1, -120)
@@ -104,17 +102,73 @@ function ProduceSongMenu.new(parentGui, resultPopup)
     content.Parent = mainFrame
 
     -- Left Column: Sliders
-    local leftCol = Instance.new("Frame")
+    local leftCol = Instance.new("ScrollingFrame")
     leftCol.Size = UDim2.new(0.55, 0, 1, 0)
     leftCol.BackgroundTransparency = 1
+    leftCol.BorderSizePixel = 0
+    leftCol.ScrollBarThickness = 4
+    leftCol.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    leftCol.CanvasSize = UDim2.new(0, 0, 0, 0)
+    leftCol.ScrollingDirection = Enum.ScrollingDirection.Y
+    leftCol.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
     leftCol.Parent = content
     
     local list = Instance.new("UIListLayout")
     list.Padding = UDim.new(0, 12)
+    list.SortOrder = Enum.SortOrder.LayoutOrder
     list.Parent = leftCol
 
-    local function setupSlider(title, key)
+    local function createSectionHeader(num, titleStr, subtitleStr, order)
+        local frame = Instance.new("Frame")
+        frame.Size = UDim2.new(1, 0, 0, 40)
+        frame.BackgroundTransparency = 1
+        frame.LayoutOrder = order
+        frame.Parent = leftCol
+
+        local circle = Instance.new("Frame")
+        circle.Size = UDim2.new(0, 24, 0, 24)
+        circle.Position = UDim2.new(0, 0, 0, 0)
+        circle.BackgroundColor3 = COLORS.ACCENT
+        circle.Parent = frame
+        Instance.new("UICorner", circle).CornerRadius = UDim.new(1, 0)
+
+        local numLabel = Instance.new("TextLabel")
+        numLabel.Text = num
+        numLabel.Font = FONTS.TITLE
+        numLabel.TextSize = 14
+        numLabel.TextColor3 = COLORS.TEXT_PRIMARY
+        numLabel.Size = UDim2.new(1, 0, 1, 0)
+        numLabel.BackgroundTransparency = 1
+        numLabel.Parent = circle
+
+        local tLabel = Instance.new("TextLabel")
+        tLabel.Text = titleStr
+        tLabel.Font = FONTS.TITLE
+        tLabel.TextSize = 14
+        tLabel.TextColor3 = COLORS.TEXT_PRIMARY
+        tLabel.Size = UDim2.new(1, -34, 0, 16)
+        tLabel.Position = UDim2.new(0, 34, 0, 0)
+        tLabel.TextXAlignment = Enum.TextXAlignment.Left
+        tLabel.BackgroundTransparency = 1
+        tLabel.Parent = frame
+
+        local sLabel = Instance.new("TextLabel")
+        sLabel.Text = subtitleStr
+        sLabel.Font = FONTS.BODY
+        sLabel.TextSize = 11
+        sLabel.TextColor3 = COLORS.TEXT_SECONDARY
+        sLabel.Size = UDim2.new(1, -34, 0, 14)
+        sLabel.Position = UDim2.new(0, 34, 0, 16)
+        sLabel.TextXAlignment = Enum.TextXAlignment.Left
+        sLabel.BackgroundTransparency = 1
+        sLabel.Parent = frame
+    end
+
+    createSectionHeader("1", "SONG DIRECTION", "Choose the vibe of your track", 1)
+
+    local function setupSlider(title, key, order)
         local slider = SliderUI.new(leftCol, title, self.CurrentSliders[key])
+        slider.Instance.LayoutOrder = order
         slider.OnChanged = function(val)
             self.CurrentSliders[key] = val
             self:UpdateEstimates()
@@ -122,42 +176,41 @@ function ProduceSongMenu.new(parentGui, resultPopup)
         return slider
     end
 
-    setupSlider("Commercial vs Experimental", "Commercial")
-    setupSlider("Production Budget", "Budget")
-    setupSlider("Marketing Promotion", "Promotion")
-    setupSlider("Creative Originality", "Originality")
+    setupSlider("Commercial vs Experimental", "Commercial", 2)
+    setupSlider("Creative Originality", "Originality", 3)
 
-    -- Genre Selection (Simple Horizontal List)
-    local genreLabel = Instance.new("TextLabel")
-    genreLabel.Text = "GENRE SELECTION"
-    genreLabel.Font = FONTS.SUBTITLE
-    genreLabel.TextSize = 12
-    genreLabel.TextColor3 = COLORS.TEXT_SECONDARY
-    genreLabel.Size = UDim2.new(1, 0, 0, 20)
-    genreLabel.TextXAlignment = Enum.TextXAlignment.Left
-    genreLabel.BackgroundTransparency = 1
-    genreLabel.Parent = leftCol
+    local spacer1 = Instance.new("Frame")
+    spacer1.Size = UDim2.new(1, 0, 0, 5)
+    spacer1.BackgroundTransparency = 1
+    spacer1.LayoutOrder = 4
+    spacer1.Parent = leftCol
+
+    createSectionHeader("2", "GENRE", "Pick the main genre of your track", 5)
 
     local genreContainer = Instance.new("Frame")
-    genreContainer.Size = UDim2.new(1, 0, 0, 40)
+    genreContainer.Size = UDim2.new(1, 0, 0, 70)
     genreContainer.BackgroundTransparency = 1
+    genreContainer.LayoutOrder = 6
     genreContainer.Parent = leftCol
 
-    local gList = Instance.new("UIListLayout")
-    gList.FillDirection = Enum.FillDirection.Horizontal
-    gList.Padding = UDim.new(0, 5)
+    local gList = Instance.new("UIGridLayout")
+    gList.CellSize = UDim2.new(0.31, 0, 0, 30)
+    gList.CellPadding = UDim2.new(0, 8, 0, 8)
+    gList.SortOrder = Enum.SortOrder.LayoutOrder
     gList.Parent = genreContainer
 
+    local genreOrder = 1
     for _, genre in pairs(GENRES) do
         local gBtn = Instance.new("TextButton")
         gBtn.Text = genre
-        gBtn.Size = UDim2.new(0, 60, 1, 0)
         gBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
         gBtn.TextColor3 = COLORS.TEXT_SECONDARY
         gBtn.Font = FONTS.BODY
         gBtn.TextSize = 11
+        gBtn.LayoutOrder = genreOrder
         gBtn.Parent = genreContainer
         Instance.new("UICorner").Parent = gBtn
+        genreOrder = genreOrder + 1
         
         local gStroke = Instance.new("UIStroke")
         gStroke.Thickness = 1
@@ -184,6 +237,35 @@ function ProduceSongMenu.new(parentGui, resultPopup)
         end
     end
 
+    local spacer2 = Instance.new("Frame")
+    spacer2.Size = UDim2.new(1, 0, 0, 5)
+    spacer2.BackgroundTransparency = 1
+    spacer2.LayoutOrder = 7
+    spacer2.Parent = leftCol
+
+    createSectionHeader("3", "EXTRAS (OPTIONAL)", "Tune your promotion and budget", 8)
+    
+    setupSlider("Marketing Promotion", "Promotion", 9)
+    setupSlider("Production Budget", "Budget", 10)
+
+    local tipBox = Instance.new("Frame")
+    tipBox.Size = UDim2.new(1, 0, 0, 30)
+    tipBox.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    tipBox.LayoutOrder = 11
+    tipBox.Parent = leftCol
+    Instance.new("UICorner", tipBox).CornerRadius = UDim.new(0, 8)
+
+    local tipLabel = Instance.new("TextLabel")
+    tipLabel.Text = "💡 TIP: Higher originality can bring loyal fans but increases risk."
+    tipLabel.Font = FONTS.BODY
+    tipLabel.TextSize = 11
+    tipLabel.TextColor3 = COLORS.TEXT_SECONDARY
+    tipLabel.Size = UDim2.new(1, -20, 1, 0)
+    tipLabel.Position = UDim2.new(0, 10, 0, 0)
+    tipLabel.TextXAlignment = Enum.TextXAlignment.Left
+    tipLabel.BackgroundTransparency = 1
+    tipLabel.Parent = tipBox
+
     -- Right Column: Estimates & Stats
     local rightCol = Instance.new("Frame")
     rightCol.Size = UDim2.new(0.4, 0, 1, 0)
@@ -204,28 +286,49 @@ function ProduceSongMenu.new(parentGui, resultPopup)
 
     local rList = Instance.new("UIListLayout")
     rList.Padding = UDim.new(0, 5)
+    rList.SortOrder = Enum.SortOrder.LayoutOrder
     rList.Parent = rightCol
 
     local estTitle = Instance.new("TextLabel")
-    estTitle.Text = "RELEASE ESTIMATES"
+    estTitle.Text = "📊 RELEASE ESTIMATE"
     estTitle.Font = FONTS.SUBTITLE
-    estTitle.TextSize = 13
+    estTitle.TextSize = 16
     estTitle.TextColor3 = COLORS.TEXT_PRIMARY
-    estTitle.Size = UDim2.new(1, 0, 0, 25)
+    estTitle.Size = UDim2.new(1, 0, 0, 20)
+    estTitle.TextXAlignment = Enum.TextXAlignment.Center
     estTitle.BackgroundTransparency = 1
+    estTitle.LayoutOrder = 1
     estTitle.Parent = rightCol
 
+    local estSubtitle = Instance.new("TextLabel")
+    estSubtitle.Text = "Preview the expected outcome"
+    estSubtitle.Font = FONTS.BODY
+    estSubtitle.TextSize = 11
+    estSubtitle.TextColor3 = COLORS.TEXT_SECONDARY
+    estSubtitle.Size = UDim2.new(1, 0, 0, 15)
+    estSubtitle.TextXAlignment = Enum.TextXAlignment.Center
+    estSubtitle.BackgroundTransparency = 1
+    estSubtitle.LayoutOrder = 2
+    estSubtitle.Parent = rightCol
+
+    local estSpacer = Instance.new("Frame")
+    estSpacer.Size = UDim2.new(1, 0, 0, 15)
+    estSpacer.BackgroundTransparency = 1
+    estSpacer.LayoutOrder = 3
+    estSpacer.Parent = rightCol
+
     self.EstimateLabels = {}
-    local function createEst(name, color)
+    local function createEst(name, color, order)
         local frame = Instance.new("Frame")
-        frame.Size = UDim2.new(1, 0, 0, 28)
+        frame.Size = UDim2.new(1, 0, 0, 35)
         frame.BackgroundTransparency = 1
+        frame.LayoutOrder = order
         frame.Parent = rightCol
         
         local n = Instance.new("TextLabel")
         n.Text = name
         n.Font = FONTS.BODY
-        n.TextSize = 12
+        n.TextSize = 14
         n.TextColor3 = COLORS.TEXT_SECONDARY
         n.Size = UDim2.new(0.5, 0, 1, 0)
         n.TextXAlignment = Enum.TextXAlignment.Left
@@ -235,7 +338,7 @@ function ProduceSongMenu.new(parentGui, resultPopup)
         local v = Instance.new("TextLabel")
         v.Text = "..."
         v.Font = FONTS.TITLE
-        v.TextSize = 14
+        v.TextSize = 18
         v.TextColor3 = color or COLORS.TEXT_PRIMARY
         v.Size = UDim2.new(0.5, 0, 1, 0)
         v.Position = UDim2.new(0.5, 0, 0, 0)
@@ -246,30 +349,43 @@ function ProduceSongMenu.new(parentGui, resultPopup)
         self.EstimateLabels[name] = v
     end
 
-    createEst("Total Cost", COLORS.MONEY)
-    createEst("Stress Impact", COLORS.STRESS)
-    createEst("Market Risk", Color3.new(1, 0.6, 0))
-    createEst("Potential", Color3.new(0.4, 0.8, 1))
+    createEst("💰 Total Cost", COLORS.MONEY, 4)
+    createEst("💖 Stress Impact", COLORS.STRESS, 5)
+    createEst("⚠️ Market Risk", Color3.new(1, 0.6, 0), 6)
+    createEst("⭐ Hit Potential", Color3.new(0.4, 0.8, 1), 7)
 
     -- Release Button (Spaced at the bottom)
     local btnSpacer = Instance.new("Frame")
-    btnSpacer.Size = UDim2.new(1, 0, 0, 10)
+    btnSpacer.Size = UDim2.new(1, 0, 0, 20)
     btnSpacer.BackgroundTransparency = 1
+    btnSpacer.LayoutOrder = 8
     btnSpacer.Parent = rightCol
 
-    -- Release Button
     local releaseBtn = Instance.new("TextButton")
     releaseBtn.Name = "ReleaseButton"
-    releaseBtn.Size = UDim2.new(1, 0, 0, 50)
+    releaseBtn.Size = UDim2.new(1, 0, 0, 55)
     releaseBtn.Position = UDim2.new(0, 0, 0.8, 0)
     releaseBtn.BackgroundColor3 = COLORS.ACCENT
     releaseBtn.Font = FONTS.TITLE
-    releaseBtn.TextSize = 20
+    releaseBtn.TextSize = 22
     releaseBtn.TextColor3 = COLORS.TEXT_PRIMARY
-    releaseBtn.Text = "RELEASE TRACK"
+    releaseBtn.Text = "🎵 RELEASE TRACK"
     releaseBtn.AutoButtonColor = false
+    releaseBtn.LayoutOrder = 9
     releaseBtn.Parent = rightCol
 
+    local warningLabel = Instance.new("TextLabel")
+    warningLabel.Text = "🛡️ You can't undo this action"
+    warningLabel.Font = FONTS.BODY
+    warningLabel.TextSize = 10
+    warningLabel.TextColor3 = COLORS.TEXT_SECONDARY
+    warningLabel.Size = UDim2.new(1, 0, 0, 20)
+    warningLabel.TextXAlignment = Enum.TextXAlignment.Center
+    warningLabel.BackgroundTransparency = 1
+    warningLabel.LayoutOrder = 10
+    warningLabel.Parent = rightCol
+
+    Instance.new("UICorner").CornerRadius = UDim.new(0, 12)
     Instance.new("UICorner").Parent = releaseBtn
     
     releaseBtn.MouseButton1Click:Connect(function()
@@ -278,7 +394,6 @@ function ProduceSongMenu.new(parentGui, resultPopup)
             -- Note: We DON'T close the menu anymore as per request
             self.ResultPopup:Show(result)
             self:UpdateEstimates()
-            self.IdentityLabel.Text = "Current Identity: " .. SongSystem.GetArtistIdentity()
             if self.OnActionTriggered then self.OnActionTriggered() end
         else
             -- Feedback for error
@@ -296,25 +411,24 @@ end
 
 function ProduceSongMenu:UpdateEstimates()
     local est = SongSystem.CalculateEstimate(self.CurrentSliders)
-    self.EstimateLabels["Total Cost"].Text = "$" .. math.floor(est.Cost)
-    self.EstimateLabels["Stress Impact"].Text = "+" .. math.floor(est.Stress)
+    self.EstimateLabels["💰 Total Cost"].Text = "$" .. math.floor(est.Cost)
+    self.EstimateLabels["💖 Stress Impact"].Text = "+" .. math.floor(est.Stress)
     
     local riskText = "Low"
     if est.Risk > 60 then riskText = "Extreme"
     elseif est.Risk > 40 then riskText = "High"
     elseif est.Risk > 20 then riskText = "Medium" end
-    self.EstimateLabels["Market Risk"].Text = riskText
+    self.EstimateLabels["⚠️ Market Risk"].Text = riskText
     
     local potText = "Standard"
     if est.RewardPotential > 80 then potText = "Massive"
     elseif est.RewardPotential > 50 then potText = "High"
     elseif est.RewardPotential > 25 then potText = "Promising" end
-    self.EstimateLabels["Potential"].Text = potText
+    self.EstimateLabels["⭐ Hit Potential"].Text = potText
 end
 
 function ProduceSongMenu:Toggle(isVisible)
     if isVisible then
-        self.IdentityLabel.Text = "Current Identity: " .. SongSystem.GetArtistIdentity()
         self:UpdateEstimates()
         self.MainFrame.Visible = true
         self.MainFrame.Position = UDim2.new(1, 0, 0, 0)

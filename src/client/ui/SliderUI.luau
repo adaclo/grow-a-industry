@@ -20,14 +20,26 @@ function SliderUI.new(parent, title, initialValue)
     self.Instance = container
 
     local titleLabel = Instance.new("TextLabel")
-    titleLabel.Text = title:upper()
+    titleLabel.Text = title
     titleLabel.Font = Enum.Font.GothamMedium
     titleLabel.TextSize = 12
-    titleLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-    titleLabel.Size = UDim2.new(1, 0, 0, 12)
+    titleLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+    titleLabel.Size = UDim2.new(0.8, 0, 0, 12)
     titleLabel.TextXAlignment = Enum.TextXAlignment.Left
     titleLabel.BackgroundTransparency = 1
     titleLabel.Parent = container
+
+    local valLabel = Instance.new("TextLabel")
+    valLabel.Text = math.floor(self.Value * 100) .. "%"
+    valLabel.Font = Enum.Font.GothamMedium
+    valLabel.TextSize = 12
+    valLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+    valLabel.Size = UDim2.new(0.2, 0, 0, 12)
+    valLabel.Position = UDim2.new(0.8, 0, 0, 0)
+    valLabel.TextXAlignment = Enum.TextXAlignment.Right
+    valLabel.BackgroundTransparency = 1
+    valLabel.Parent = container
+    self.ValLabel = valLabel
 
     -- Track
     local track = Instance.new("Frame")
@@ -83,6 +95,8 @@ function SliderUI.new(parent, title, initialValue)
         TweenService:Create(knob, TweenInfo.new(0.1), {Position = UDim2.new(relativeX, 0, 0.5, 0)}):Play()
         TweenService:Create(fill, TweenInfo.new(0.1), {Size = UDim2.new(relativeX, 0, 1, 0)}):Play()
         
+        self.ValLabel.Text = math.floor(relativeX * 100) .. "%"
+        
         if self.OnChanged then
             self.OnChanged(relativeX)
         end
@@ -120,6 +134,9 @@ function SliderUI:SetValue(val)
     self.Value = math.clamp(val, 0, 1)
     self.Knob.Position = UDim2.new(self.Value, 0, 0.5, 0)
     self.Fill.Size = UDim2.new(self.Value, 0, 1, 0)
+    if self.ValLabel then
+        self.ValLabel.Text = math.floor(self.Value * 100) .. "%"
+    end
 end
 
 return SliderUI
